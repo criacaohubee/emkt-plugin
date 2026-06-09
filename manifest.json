@@ -1,0 +1,14 @@
+{
+  "name": "Afeet - E-mail MKT Automator",
+  "id": "1537137284760675695",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": ["*"],
+    "reasoning": "O plugin precisa acessar as URLs de produtos informadas no briefing e as imagens/CDNs correspondentes para montar vitrines automaticamente.",
+    "devAllowedDomains": []
+  }
+}

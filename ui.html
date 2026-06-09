@@ -1,0 +1,843 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <style>
+    :root {
+      color-scheme: light;
+      --accent: #7607E0;
+      --accent-strong: #5f05b4;
+      --bg: #ffffff;
+      --panel: #ffffff;
+      --panel-muted: #f7f7fb;
+      --border: #e7e7ee;
+      --border-strong: #d9d9e5;
+      --text: #17151f;
+      --text-muted: #6b6876;
+      --shadow: 0 18px 48px rgba(20, 12, 36, 0.08);
+      font-family: "Rethink Sans", Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 12px;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      min-width: 760px;
+    }
+
+    main {
+      display: grid;
+      gap: 14px;
+      padding: 20px;
+      padding-bottom: 28px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 720;
+      letter-spacing: 0;
+      line-height: 1.25;
+    }
+
+    label {
+      display: grid;
+      gap: 8px;
+      font-weight: 600;
+    }
+
+    textarea,
+    input,
+    select {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-sizing: border-box;
+      color: var(--text);
+      background: var(--panel);
+      font: inherit;
+      min-width: 0;
+      padding: 10px 11px;
+      width: 100%;
+    }
+
+    textarea:focus,
+    input:focus,
+    select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(118, 7, 224, 0.12);
+      outline: none;
+    }
+
+    textarea {
+      min-height: 150px;
+      resize: vertical;
+      white-space: pre-wrap;
+    }
+
+    button {
+      align-items: center;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      cursor: pointer;
+      display: inline-flex;
+      font: inherit;
+      font-weight: 650;
+      justify-content: center;
+      min-height: 32px;
+      padding: 9px 13px;
+      transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease, color 140ms ease;
+    }
+
+    button.primary {
+      background: var(--accent);
+      box-shadow: 0 8px 18px rgba(118, 7, 224, 0.22);
+      color: #ffffff;
+    }
+
+    button.primary:hover:not(:disabled) {
+      background: var(--accent-strong);
+    }
+
+    button.secondary {
+      background: #ffffff;
+      border-color: var(--border-strong);
+      color: var(--text);
+    }
+
+    button.secondary:hover:not(:disabled) {
+      background: var(--panel-muted);
+      border-color: #cbc9d6;
+    }
+
+    button:disabled {
+      cursor: default;
+      opacity: 0.45;
+    }
+
+    .topbar {
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+      justify-content: space-between;
+      margin: -20px -20px 0;
+      padding: 18px 20px;
+    }
+
+    .size-controls {
+      display: none;
+    }
+
+    .selection,
+    .status {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      line-height: 1.45;
+      padding: 10px 12px;
+    }
+
+    .selection {
+      background: var(--panel-muted);
+      color: var(--text-muted);
+    }
+
+    .actions,
+    .options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .options label {
+      align-items: center;
+      display: flex;
+      font-weight: 500;
+      gap: 6px;
+    }
+
+    .options input {
+      width: auto;
+    }
+
+    .status {
+      background: #fbfaff;
+      color: var(--text-muted);
+      min-height: 18px;
+    }
+
+    .progress {
+      display: grid;
+      gap: 7px;
+    }
+
+    .progress-meta {
+      color: var(--text-muted);
+      display: flex;
+      font-size: 11px;
+      justify-content: space-between;
+    }
+
+    .progress-track {
+      background: #eceaf4;
+      border-radius: 999px;
+      height: 8px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      background: var(--accent);
+      height: 100%;
+      transition: width 140ms ease;
+      width: 0%;
+    }
+
+    .table-wrap {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      max-height: calc(100vh - 390px);
+      min-height: 260px;
+      overflow: auto;
+    }
+
+    table {
+      border-collapse: collapse;
+      min-width: 1380px;
+      width: 100%;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--border);
+      padding: 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #fbfbfd;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    td.index {
+      color: var(--text-muted);
+      font-weight: 700;
+      width: 36px;
+    }
+
+    td.status-cell {
+      width: 120px;
+    }
+
+    td.image-cell {
+      min-width: 360px;
+    }
+
+    td.image-cell input {
+      font-size: 11px;
+    }
+
+    .image-error {
+      color: #a12a22;
+      font-size: 11px;
+      line-height: 1.35;
+      margin-top: 4px;
+      max-width: 420px;
+      overflow-wrap: anywhere;
+    }
+
+    .pill {
+      border-radius: 999px;
+      display: inline-flex;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 7px;
+      white-space: nowrap;
+    }
+
+    .pill.ok {
+      background: #e7f8ee;
+      color: #0f7a3b;
+    }
+
+    .pill.warn {
+      background: #fff4d5;
+      color: #805600;
+    }
+
+    .muted {
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .error-panel {
+      background: #fff0f0;
+      border: 1px solid #d93025;
+      border-radius: 10px;
+      color: #8c1d18;
+      display: none;
+      line-height: 1.45;
+      padding: 10px 12px;
+      white-space: pre-wrap;
+    }
+
+    .error-panel.visible {
+      display: block;
+    }
+
+    .resize-handle {
+      display: none;
+      bottom: 7px;
+      cursor: nwse-resize;
+      height: 14px;
+      opacity: 0.8;
+      position: fixed;
+      right: 7px;
+      width: 14px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="topbar">
+      <h1>Afeet - E-mail MKT Automator</h1>
+      <div class="size-controls" aria-hidden="true"></div>
+    </div>
+
+    <div id="selection" class="selection">Carregando seleção...</div>
+    <div id="fatalError" class="error-panel"></div>
+
+    <label>
+      Briefing da demanda
+      <textarea id="briefing" placeholder="Cole aqui o briefing completo da Hubee"></textarea>
+    </label>
+
+    <div class="actions">
+      <button id="analyze" class="secondary">Analisar briefing</button>
+      <button id="resolveImages" class="secondary" disabled>Buscar imagens</button>
+      <button id="apply" class="primary" disabled>Aplicar no Figma</button>
+    </div>
+
+    <div id="status" class="status">Cole o briefing para começar.</div>
+    <div class="progress" aria-label="Progresso">
+      <div class="progress-meta">
+        <span id="progressLabel">Aguardando</span>
+        <span id="progressValue">0%</span>
+      </div>
+      <div class="progress-track">
+        <div id="progressFill" class="progress-fill"></div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Título</th>
+            <th>Valor à vista</th>
+            <th>Número de parcelas</th>
+            <th>Valor parcelado</th>
+            <th>Desconto</th>
+            <th>CTA</th>
+            <th>Imagem</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="products">
+          <tr>
+            <td colspan="9" class="muted">Nenhum produto analisado.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+  <div id="resizeHandle" class="resize-handle" title="Arraste para redimensionar"></div>
+
+  <script>
+    window.addEventListener("error", (event) => {
+      showFatalError(event.error || event.message || "Erro desconhecido no painel.");
+    });
+
+    window.addEventListener("unhandledrejection", (event) => {
+      showFatalError(event.reason || "Promise rejeitada no painel.");
+    });
+
+    console.log("[Afeet - E-mail MKT Automator] ui loaded");
+
+    const state = {
+      products: [],
+      global: {},
+      resolving: false,
+      applying: false,
+      uiSize: {
+        width: 1080,
+        height: 860
+      },
+      resizing: false,
+      resizeStart: null
+    };
+
+    const el = {
+      briefing: document.getElementById("briefing"),
+      analyze: document.getElementById("analyze"),
+      resolveImages: document.getElementById("resolveImages"),
+      apply: document.getElementById("apply"),
+      status: document.getElementById("status"),
+      products: document.getElementById("products"),
+      selection: document.getElementById("selection"),
+      fatalError: document.getElementById("fatalError"),
+      resizeHandle: document.getElementById("resizeHandle"),
+      progressLabel: document.getElementById("progressLabel"),
+      progressValue: document.getElementById("progressValue"),
+      progressFill: document.getElementById("progressFill")
+    };
+
+    el.analyze.addEventListener("click", analyzeBriefing);
+    el.resolveImages.addEventListener("click", resolveImages);
+    el.apply.addEventListener("click", applyProducts);
+    el.products.addEventListener("input", handleTableInput);
+    document.querySelector(".size-controls").addEventListener("click", handleSizeClick);
+    el.resizeHandle.addEventListener("mousedown", startResize);
+    window.addEventListener("mousemove", continueResize);
+    window.addEventListener("mouseup", stopResize);
+
+    window.addEventListener("load", () => {
+      window.setTimeout(() => {
+        try {
+          el.briefing.focus({ preventScroll: true });
+        } catch (_error) {
+          el.briefing.focus();
+        }
+      }, 50);
+    });
+
+    window.onmessage = (event) => {
+      const message = event.data && event.data.pluginMessage;
+      if (!message) {
+        return;
+      }
+
+      if (message.type === "selection-summary") {
+        el.selection.textContent = message.summary;
+      }
+
+      if (message.type === "resolve-progress") {
+        updateProduct(message.rowIndex, message.product);
+        renderProducts();
+        setProgress("Buscando imagens", message.done, message.total);
+        setStatus(`Buscando imagens: ${message.done}/${message.total}`);
+      }
+
+      if (message.type === "resolve-complete") {
+        state.resolving = false;
+        state.products = message.products || [];
+        renderProducts();
+        updateButtons();
+        const failures = state.products.filter((product) => !product.imageUrl).length;
+        if (failures) {
+          const firstErrorProduct = state.products.find((product) => product.imageError);
+          const detail = firstErrorProduct ? ` Primeiro erro: ${firstErrorProduct.imageError}` : "";
+          setStatus(`Busca concluida com ${failures} imagem(ns) pendente(s).${detail}`);
+        } else {
+          setStatus("Todas as imagens foram encontradas.");
+        }
+        setProgress("Busca concluída", state.products.length, state.products.length);
+      }
+
+      if (message.type === "apply-progress") {
+        setProgress("Aplicando no Figma", message.done, message.total);
+        setStatus(`Aplicando no Figma: ${message.done}/${message.total}`);
+      }
+
+      if (message.type === "apply-complete") {
+        state.applying = false;
+        updateButtons();
+        const result = message.result;
+        const imageFailures = (result.results || []).filter((item) => item.fields && item.fields.image === false).length;
+        const errored = (result.results || []).find((item) => item.errors && item.errors.length);
+        const detail = errored ? ` Primeiro erro: ${errored.sku}: ${errored.errors[0]}` : "";
+        const skipped = result.skipped ? ` ${result.skipped} produto(s) ficaram sem aplicar por falta de SKU.` : "";
+        setStatus(`Aplicado: ${result.applied}/${result.requested} produto(s).${skipped} Imagens pendentes: ${imageFailures}.${detail}`);
+        setProgress("Aplicação concluída", result.applied, result.requested);
+      }
+
+      if (message.type === "plugin-error") {
+        state.resolving = false;
+        state.applying = false;
+        updateButtons();
+        setStatus(message.error || "Erro no plugin.");
+      }
+    };
+
+    function analyzeBriefing() {
+      const parsed = parseBriefing(el.briefing.value);
+      state.global = parsed.global;
+      state.products = parsed.products;
+      renderProducts();
+      updateButtons();
+
+      if (state.products.length === 0) {
+        setStatus("Nenhum produto encontrado. Confira se a secao VITRINES usa linhas como '1 - Nome do produto'.");
+        return;
+      }
+
+      setStatus(`${state.products.length} produto(s) encontrado(s).`);
+    }
+
+    function resolveImages() {
+      if (state.products.length === 0 || state.resolving) {
+        return;
+      }
+
+      state.resolving = true;
+      updateButtons();
+      setProgress("Buscando imagens", 0, state.products.length);
+      setStatus("Buscando imagens dos links...");
+      parent.postMessage({
+        pluginMessage: {
+          type: "resolve-images",
+          products: state.products,
+          proxyTemplate: ""
+        }
+      }, "*");
+    }
+
+    function applyProducts() {
+      syncTableInputs();
+      state.applying = true;
+      updateButtons();
+      setProgress("Aplicando no Figma", 0, state.products.length);
+      parent.postMessage({
+        pluginMessage: {
+          type: "apply-products",
+          products: state.products,
+          settings: {
+            proxyTemplate: ""
+          }
+        }
+      }, "*");
+    }
+
+    function parseBriefing(rawText) {
+      const text = String(rawText || "").replace(/\r/g, "");
+      const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
+      const vitrineStart = lines.findIndex((line) => /^VITRINES?:/i.test(line));
+      const headerLines = vitrineStart >= 0 ? lines.slice(0, vitrineStart) : [];
+      const productLines = vitrineStart >= 0 ? lines.slice(vitrineStart + 1) : lines;
+      const global = parseGlobalFields(headerLines.length ? headerLines.join("\n") : text);
+      const products = [];
+      let current = null;
+
+      for (const line of productLines) {
+        const startMatch = line.match(/^(\d{1,3})\s*[\.\)\-–—]\s*(.+)$/);
+        if (startMatch) {
+          finalizeProduct(current, global, products);
+          current = {
+            index: Number(startMatch[1]),
+            title: startMatch[2].trim(),
+            url: "",
+            price: "",
+            cashPrice: "",
+            installmentCount: "",
+            installmentValue: "",
+            discount: "",
+            cta: "",
+            imageUrl: "",
+            imageStatus: "pending",
+            imageError: ""
+          };
+          continue;
+        }
+
+        if (!current) {
+          continue;
+        }
+
+        if (/^https?:\/\//i.test(line)) {
+          current.url = line;
+          continue;
+        }
+
+        const ctaMatch = line.match(/^CTA:\s*(.+)$/i);
+        if (ctaMatch) {
+          current.cta = ctaMatch[1].trim();
+          continue;
+        }
+
+        if (/R\$\s*[\d.]+,\d{2}/i.test(line)) {
+          applyPriceLine(current, line, global);
+        }
+      }
+
+      finalizeProduct(current, global, products);
+      return { global, products };
+    }
+
+    function parseGlobalFields(text) {
+      const ctaMatches = [...String(text || "").matchAll(/^CTA:\s*(.+)$/gmi)];
+
+      return {
+        defaultCta: ctaMatches.length ? ctaMatches[ctaMatches.length - 1][1].trim() : ""
+      };
+    }
+
+    function applyPriceLine(product, line, global) {
+      const clean = line.replace(/\s+/g, " ").trim();
+      const priceMatches = [...clean.matchAll(/R\$\s*[\d.]+,\d{2}/gi)];
+      const installmentMatch = clean.match(/(\d+)\s*x\s+de\s+(R\$\s*[\d.]+,\d{2})/i);
+
+      product.cashPrice = priceMatches[0] ? normalizeCurrencyText(priceMatches[0][0]) : "";
+      product.price = product.cashPrice;
+      product.installmentCount = installmentMatch ? `${Number(installmentMatch[1])}x` : "";
+      product.installmentValue = installmentMatch ? normalizeCurrencyText(installmentMatch[2]) : "";
+      product.discount = normalizeDiscountText(clean);
+    }
+
+    function finalizeProduct(product, global, products) {
+      if (!product) {
+        return;
+      }
+
+      if (!product.cta) {
+        product.cta = global.defaultCta || "COMPRAR";
+      }
+
+      products.push(product);
+    }
+
+    function renderProducts() {
+      if (state.products.length === 0) {
+        el.products.innerHTML = '<tr><td colspan="9" class="muted">Nenhum produto analisado.</td></tr>';
+        return;
+      }
+
+      el.products.innerHTML = state.products.map((product, index) => `
+        <tr>
+          <td class="index">${product.index || index + 1}</td>
+          <td><input data-index="${index}" data-field="title" value="${escapeAttribute(product.title)}"></td>
+          <td><input data-index="${index}" data-field="cashPrice" value="${escapeAttribute(product.cashPrice || product.price)}"></td>
+          <td><input data-index="${index}" data-field="installmentCount" value="${escapeAttribute(product.installmentCount)}"></td>
+          <td><input data-index="${index}" data-field="installmentValue" value="${escapeAttribute(product.installmentValue)}"></td>
+          <td><input data-index="${index}" data-field="discount" value="${escapeAttribute(product.discount)}"></td>
+          <td><input data-index="${index}" data-field="cta" value="${escapeAttribute(product.cta)}"></td>
+          <td class="image-cell">
+            <input data-index="${index}" data-field="imageUrl" value="${escapeAttribute(product.imageUrl)}" placeholder="URL da imagem">
+            ${renderImageError(product)}
+          </td>
+          <td class="status-cell">${renderImageStatus(product)}</td>
+        </tr>
+      `).join("");
+    }
+
+    function renderImageError(product) {
+      if (!product.imageError || product.imageUrl) {
+        return "";
+      }
+
+      return `<div class="image-error">${escapeHtml(product.imageError)}</div>`;
+    }
+
+    function renderImageStatus(product) {
+      if (product.imageUrl) {
+        return '<span class="pill ok">Imagem OK</span>';
+      }
+
+      if (product.imageStatus === "error") {
+        const title = product.imageError ? ` title="${escapeAttribute(product.imageError)}"` : "";
+        return `<span class="pill warn"${title}>Pendente</span>`;
+      }
+
+      return '<span class="pill warn">Sem imagem</span>';
+    }
+
+    function handleTableInput(event) {
+      const input = event.target;
+      const index = Number(input.dataset.index);
+      const field = input.dataset.field;
+
+      if (!Number.isInteger(index) || !field || !state.products[index]) {
+        return;
+      }
+
+      state.products[index][field] = input.value;
+      updateButtons();
+    }
+
+    function syncTableInputs() {
+      for (const input of el.products.querySelectorAll("input[data-index][data-field]")) {
+        const index = Number(input.dataset.index);
+        const field = input.dataset.field;
+        if (Number.isInteger(index) && state.products[index] && field) {
+          state.products[index][field] = input.value;
+        }
+      }
+    }
+
+    function updateProduct(rowIndex, product) {
+      if (Number.isInteger(rowIndex) && state.products[rowIndex]) {
+        state.products[rowIndex] = product;
+        return;
+      }
+
+      const index = state.products.findIndex((item) => item.index === product.index);
+      if (index >= 0) {
+        state.products[index] = product;
+      }
+    }
+
+    function updateButtons() {
+      const hasProducts = state.products.length > 0;
+      el.resolveImages.disabled = !hasProducts || state.resolving || state.applying;
+      el.apply.disabled = !hasProducts || state.resolving || state.applying;
+    }
+
+    function setStatus(message) {
+      el.status.textContent = message;
+    }
+
+    function setProgress(label, done, total) {
+      const safeTotal = total > 0 ? total : 0;
+      const safeDone = safeTotal ? Math.min(done, safeTotal) : 0;
+      const percent = safeTotal ? Math.round((safeDone / safeTotal) * 100) : 0;
+
+      el.progressLabel.textContent = safeTotal ? `${label} (${safeDone}/${safeTotal})` : label;
+      el.progressValue.textContent = `${percent}%`;
+      el.progressFill.style.width = `${percent}%`;
+    }
+
+    function handleSizeClick(event) {
+      const button = event.target.closest("button[data-size]");
+      if (!button) {
+        return;
+      }
+
+      const sizes = {
+        compact: { width: 860, height: 720 },
+        large: { width: 1080, height: 860 },
+        wide: { width: 1320, height: 940 }
+      };
+
+      resizeUi(sizes[button.dataset.size] || sizes.large);
+    }
+
+    function startResize(event) {
+      state.resizing = true;
+      state.resizeStart = {
+        x: event.clientX,
+        y: event.clientY,
+        width: state.uiSize.width,
+        height: state.uiSize.height
+      };
+      event.preventDefault();
+    }
+
+    function continueResize(event) {
+      if (!state.resizing || !state.resizeStart) {
+        return;
+      }
+
+      resizeUi({
+        width: state.resizeStart.width + event.clientX - state.resizeStart.x,
+        height: state.resizeStart.height + event.clientY - state.resizeStart.y
+      });
+    }
+
+    function stopResize() {
+      state.resizing = false;
+      state.resizeStart = null;
+    }
+
+    function resizeUi(size) {
+      const width = clamp(Math.round(size.width), 760, 1500);
+      const height = clamp(Math.round(size.height), 620, 1100);
+
+      state.uiSize = { width, height };
+      parent.postMessage({
+        pluginMessage: {
+          type: "resize-ui",
+          width,
+          height
+        }
+      }, "*");
+    }
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function showFatalError(error) {
+      const text = error && error.message ? error.message : String(error || "");
+      const stack = error && error.stack ? `\n\n${error.stack}` : "";
+      const panel = document.getElementById("fatalError");
+
+      if (panel) {
+        panel.textContent = `Erro no painel do plugin:\n${text}${stack}`;
+        panel.classList.add("visible");
+      }
+
+      try {
+        parent.postMessage({
+          pluginMessage: {
+            type: "notify",
+            message: `Erro no painel: ${text}`
+          }
+        }, "*");
+      } catch (_error) {
+        // If postMessage itself fails, the visible panel still carries the error.
+      }
+    }
+
+    function normalizeDiscountText(value) {
+      const text = String(value || "").replace(/¨/g, "").replace(/\s+/g, " ").trim();
+      const offMatch = text.match(/(\d{1,3})\s*%\s*OFF\b/i);
+      const trailingMatch = text.match(/[-–—]?\s*(\d{1,3})\s*%\s*$/i);
+      const spacedDashMatch = text.match(/[-–—]\s*(\d{1,3})\s*%/i);
+      const match = offMatch || trailingMatch || spacedDashMatch;
+
+      return match ? `${Number(match[1])}%` : "";
+    }
+
+    function normalizeCurrencyText(value) {
+      return String(value || "").replace(/\s+/g, " ").trim().replace(/^R\$\s*/, "R$ ");
+    }
+
+    function parseCurrencyBR(value) {
+      const number = String(value || "")
+        .replace(/[^\d,]/g, "")
+        .replace(",", ".");
+      return Number(number);
+    }
+
+    function formatCurrencyBR(value) {
+      return value.toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+        minimumFractionDigits: 2
+      }).replace(/\u00a0/g, " ");
+    }
+
+    function escapeAttribute(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+  </script>
+</body>
+</html>
