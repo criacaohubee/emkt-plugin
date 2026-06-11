@@ -13,14 +13,29 @@ Plugin Figma para transformar briefings de e-mail marketing em vitrines preenchi
 
 ## Fluxo de uso
 
+O painel abre em `Configurar SKUs`. Use os botoes do header para alternar entre `Configurar SKUs` e `Exportar fatias`.
+
+### Preenchimento da vitrine
+
 1. Cole o briefing completo no painel.
 2. Clique em `Analisar briefing`.
 3. Revise a tabela e ajuste campos se necessario.
 4. Clique em `Buscar imagens`.
 5. Clique em `Aplicar no Figma`.
 
-Use os botoes `M`, `G` e `XL` no topo do painel para mudar o tamanho da janela. Tambem da para arrastar a alca no canto inferior direito.
 Durante a busca e a aplicacao, a barra de progresso mostra o total processado.
+
+### Exportacao de fatias PNG
+
+1. Selecione o frame principal do e-mail final.
+2. Na area `Exportacao AFEET`, clique em `Detectar Fatias`.
+3. Revise o checklist e desmarque o que nao deve sair no ZIP.
+4. Escolha a escala `1x`, `2x` ou `3x`.
+5. Clique em `Exportar Selecionadas`.
+6. Baixe o arquivo `Fatias.zip` quando o plugin concluir a exportacao.
+
+O ZIP final usa a pasta `Fatias/` e nomes numerados, como `01_HEADER.png`, `02_HERO.png` e `03_CORPO_BG.png`.
+O `CORPO_BG` e uma fatia virtual criada por clone temporario da camada `CORPO`; o plugin oculta textos, vitrine e SKUs apenas nesse clone e remove o clone ao final.
 
 ## Padrao esperado das camadas Afeef/Authentic Feet
 
@@ -87,3 +102,4 @@ Para acelerar a busca, o plugin resolve ate 8 produtos em paralelo, guarda cache
 - O plugin nao duplica cards ainda. Ele aplica produtos apenas nos SKUs ja existentes no template selecionado.
 - Imagens de tenis e produtos gerais sao aplicadas com `scaleMode: FILL`.
 - Produtos com titulo ou URL contendo blusao, blusa, jaqueta ou calca sao aplicados com `scaleMode: FIT` e um fill branco `#FFFFFF` por baixo.
+- A exportacao de fatias nao salva arquivos automaticamente no Desktop. Ela gera `Fatias.zip` para download manual.

@@ -53,6 +53,21 @@ figma.ui.onmessage = async (message) => {
       return;
     }
 
+    if (message.type === "detect-slices") {
+      const result = detectAfeetSlices();
+      figma.ui.postMessage({ type: "slice-detect-complete", result });
+      figma.notify(`${result.items.length} fatia(s) detectada(s).`);
+      return;
+    }
+
+    if (message.type === "export-slices") {
+      const result = await exportAfeetSlices(message.items || [], message.scale || 2);
+      figma.ui.postMessage({ type: "slice-export-complete", result });
+      const failureText = result.failures && result.failures.length ? ` ${result.failures.length} falha(s).` : "";
+      figma.notify(`Exportacao AFEET concluida: ${result.files.length} arquivo(s).${failureText}`);
+      return;
+    }
+
     if (message.type === "resize-ui") {
       figma.ui.resize(message.width || 1080, message.height || 860);
       return;
@@ -94,6 +109,342 @@ function safeFindSkuNodes(root) {
   } catch (_error) {
     return [];
   }
+}
+
+function detectAfeetSlices() {
+  const root = figma.currentPage.selection[0];
+  if (!root) {
+    throw new Error("Selecione o frame principal do e-mail antes de detectar as fatias.");
+  }
+
+  const items = [];
+  const seenNodeIds = {};
+  const header = findFirstExportNodeByName(root, ["HEADER"]);
+  const hero = findFirstExportNodeByName(root, ["HERO"]);
+  const corpo = findFirstExportNodeByName(root, ["CORPO"]);
+  const bannerApp = findFirstExportNodeByName(root, ["BANNER APP"]);
+  const footerIcons = findFirstExportNodeByName(root, ["FOOTER - ICONS", "FOOTER ICONS"]);
+  const footerRedes = findFirstExportNodeByName(root, ["FOOTER - REDES", "FOOTER REDES"]);
+
+  addDetectedSlice(items, seenNodeIds, header, "HEADER", "node");
+  addDetectedSlice(items, seenNodeIds, hero, "HERO", "node");
+
+  if (corpo) {
+    items.push({
+      id: `virtual-corpo-bg-${corpo.id}`,
+      nodeId: corpo.id,
+      label: "CORPO_BG",
+      kind: "corpo-bg",
+      selected: true
+    });
+
+    const textNodes = findTextoNodes(corpo);
+    for (const textNode of textNodes) {
+      addDetectedSlice(items, seenNodeIds, textNode, textNode.name, "node");
+    }
+
+    const skuNodes = findExportSkuNodes(corpo);
+    for (const skuNode of skuNodes) {
+      addDetectedSlice(items, seenNodeIds, skuNode, skuNode.name, "node");
+    }
+  }
+
+  addDetectedSlice(items, seenNodeIds, bannerApp, "BANNER APP", "node");
+  addDetectedSlice(items, seenNodeIds, footerIcons, "FOOTER - ICONS", "node");
+
+  const socialNodes = findFooterSocialNodes(footerRedes);
+  for (const socialNode of socialNodes) {
+    addDetectedSlice(items, seenNodeIds, socialNode, socialNode.name, "node");
+  }
+
+  return {
+    rootName: root.name,
+    items
+  };
+}
+
+function addDetectedSlice(items, seenNodeIds, node, label, kind) {
+  if (!node || !isExportableNode(node) || seenNodeIds[node.id]) {
+    return;
+  }
+
+  seenNodeIds[node.id] = true;
+  items.push({
+    id: node.id,
+    nodeId: node.id,
+    label: label || node.name,
+    kind,
+    selected: true
+  });
+}
+
+function findFirstExportNodeByName(root, names) {
+  const normalizedNames = names.map(normalizeLayerName);
+
+  if (normalizedNames.includes(normalizeLayerName(root.name)) && isExportableNode(root)) {
+    return root;
+  }
+
+  if (typeof root.findAll !== "function") {
+    return null;
+  }
+
+  const matches = root.findAll((node) => {
+    return isExportableNode(node) && normalizedNames.includes(normalizeLayerName(node.name));
+  });
+
+  matches.sort(compareTopLeft);
+  return matches[0] || null;
+}
+
+function findTextoNodes(corpo) {
+  if (!corpo || typeof corpo.findAll !== "function") {
+    return [];
+  }
+
+  const nodes = corpo.findAll((node) => {
+    const name = normalizeLayerName(node.name);
+    return isExportableNode(node) && /^TEXTO(?:\s+\d+)?$/.test(name);
+  });
+
+  nodes.sort(compareTextSliceNodes);
+  return nodes;
+}
+
+function compareTextSliceNodes(a, b) {
+  const aNumber = textSliceNumber(a.name);
+  const bNumber = textSliceNumber(b.name);
+
+  if (aNumber !== bNumber) {
+    return aNumber - bNumber;
+  }
+
+  return compareTopLeft(a, b);
+}
+
+function textSliceNumber(name) {
+  const normalized = normalizeLayerName(name);
+  if (normalized === "TEXTO") {
+    return 0;
+  }
+
+  const match = normalized.match(/^TEXTO\s+(\d+)$/);
+  return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
+}
+
+function findExportSkuNodes(root) {
+  const nodes = [];
+
+  if (isSkuNode(root) && isExportableNode(root)) {
+    nodes.push(root);
+  }
+
+  if (typeof root.findAll === "function") {
+    appendItems(nodes, root.findAll((node) => isExportableNode(node) && isSkuNode(node)));
+  }
+
+  const unique = uniqueNodes(nodes);
+  unique.sort(compareSkuNodes);
+  return unique;
+}
+
+function findFooterSocialNodes(footerRedes) {
+  if (!footerRedes || !("children" in footerRedes)) {
+    return [];
+  }
+
+  const nodes = [];
+  for (const child of footerRedes.children) {
+    if (isExportableNode(child)) {
+      nodes.push(child);
+    }
+  }
+
+  nodes.sort(compareTopLeft);
+  return nodes;
+}
+
+async function exportAfeetSlices(items, scale) {
+  const selectedItems = items.filter((item) => item && item.selected !== false);
+  const safeScale = clampExportScale(scale);
+  const files = [];
+  const failures = [];
+
+  for (let index = 0; index < selectedItems.length; index += 1) {
+    const item = selectedItems[index];
+    const fileName = `${padNumber(index + 1)}_${sliceFileStem(item.label)}.png`;
+
+    try {
+      const bytes = item.kind === "corpo-bg"
+        ? await exportCorpoBackgroundSlice(item.nodeId, safeScale)
+        : await exportNodeSlice(item.nodeId, safeScale);
+
+      files.push({
+        name: fileName,
+        label: item.label,
+        bytes
+      });
+    } catch (error) {
+      failures.push({
+        label: item.label || fileName,
+        reason: readError(error)
+      });
+    }
+
+    figma.ui.postMessage({
+      type: "slice-export-progress",
+      done: index + 1,
+      total: selectedItems.length
+    });
+  }
+
+  return {
+    files,
+    failures,
+    scale: safeScale
+  };
+}
+
+async function exportNodeSlice(nodeId, scale) {
+  const node = await getNodeByIdSafe(nodeId);
+  if (!isExportableNode(node)) {
+    throw new Error("Camada nao encontrada ou nao exportavel.");
+  }
+
+  return node.exportAsync({
+    format: "PNG",
+    constraint: {
+      type: "SCALE",
+      value: scale
+    }
+  });
+}
+
+async function exportCorpoBackgroundSlice(nodeId, scale) {
+  const corpo = await getNodeByIdSafe(nodeId);
+  if (!isExportableNode(corpo) || typeof corpo.clone !== "function") {
+    throw new Error("Camada CORPO nao encontrada ou nao pode ser clonada.");
+  }
+
+  const originalBounds = getNodeBounds(corpo);
+  const clone = corpo.clone();
+
+  try {
+    detachTemporaryClone(clone, originalBounds);
+    lockNodeSize(clone, originalBounds.width, originalBounds.height);
+    hideCorpoForegroundInClone(clone);
+    return await clone.exportAsync({
+      format: "PNG",
+      constraint: {
+        type: "SCALE",
+        value: scale
+      }
+    });
+  } finally {
+    try {
+      clone.remove();
+    } catch (_error) {
+      // Temporary clone cleanup should not hide the original export error.
+    }
+  }
+}
+
+function detachTemporaryClone(clone, originalBounds) {
+  try {
+    figma.currentPage.appendChild(clone);
+    if ("x" in clone) {
+      clone.x = originalBounds.x;
+    }
+    if ("y" in clone) {
+      clone.y = originalBounds.y;
+    }
+  } catch (_error) {
+    // If the node type cannot be reparented, still export and remove the temporary clone.
+  }
+}
+
+function hideCorpoForegroundInClone(clone) {
+  if (typeof clone.findAll !== "function") {
+    return;
+  }
+
+  const nodes = clone.findAll((node) => {
+    const name = normalizeLayerName(node.name);
+    return /^TEXTO(?:\s+\d+)?$/.test(name) ||
+      name === "VITRINE" ||
+      name === "VITRINES" ||
+      /^SKU\s*\d+\b/.test(name);
+  });
+
+  for (const node of nodes) {
+    if ("visible" in node) {
+      node.visible = false;
+    }
+  }
+}
+
+function lockNodeSize(node, width, height) {
+  const safeWidth = Math.max(1, width || node.width || 1);
+  const safeHeight = Math.max(1, height || node.height || 1);
+
+  if ("layoutSizingHorizontal" in node) {
+    try {
+      node.layoutSizingHorizontal = "FIXED";
+    } catch (_error) {
+      // Some node types expose the property but do not allow writes.
+    }
+  }
+
+  if ("layoutSizingVertical" in node) {
+    try {
+      node.layoutSizingVertical = "FIXED";
+    } catch (_error) {
+      // Some node types expose the property but do not allow writes.
+    }
+  }
+
+  if (typeof node.resizeWithoutConstraints === "function") {
+    node.resizeWithoutConstraints(safeWidth, safeHeight);
+    return;
+  }
+
+  if (typeof node.resize === "function") {
+    node.resize(safeWidth, safeHeight);
+  }
+}
+
+async function getNodeByIdSafe(nodeId) {
+  if (typeof figma.getNodeByIdAsync === "function") {
+    return figma.getNodeByIdAsync(nodeId);
+  }
+
+  return figma.getNodeById(nodeId);
+}
+
+function isExportableNode(node) {
+  return Boolean(node && typeof node.exportAsync === "function");
+}
+
+function clampExportScale(scale) {
+  const value = Number(scale);
+  if (value === 1 || value === 2 || value === 3) {
+    return value;
+  }
+
+  return 2;
+}
+
+function padNumber(value) {
+  return String(value).padStart(2, "0");
+}
+
+function sliceFileStem(label) {
+  const normalized = normalizeLayerName(label)
+    .replace(/-/g, " ")
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  return normalized || "FATIA";
 }
 
 async function resolveProductImages(products, proxyTemplate) {
@@ -1357,6 +1708,22 @@ function appendItems(target, items) {
   }
 
   return target;
+}
+
+function uniqueNodes(nodes) {
+  const unique = [];
+  const seen = new Set();
+
+  for (const node of nodes) {
+    if (!node || seen.has(node.id)) {
+      continue;
+    }
+
+    seen.add(node.id);
+    unique.push(node);
+  }
+
+  return unique;
 }
 
 function cloneProduct(product) {

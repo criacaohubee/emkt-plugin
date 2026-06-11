@@ -119,10 +119,45 @@
       align-items: center;
       border-bottom: 1px solid var(--border);
       display: flex;
-      gap: 8px;
+      flex-wrap: wrap;
+      gap: 12px;
       justify-content: space-between;
       margin: -20px -20px 0;
       padding: 18px 20px;
+    }
+
+    .view-tabs {
+      background: var(--panel-muted);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: inline-flex;
+      gap: 3px;
+      padding: 3px;
+    }
+
+    button.tab-button {
+      background: transparent;
+      border-color: transparent;
+      border-radius: 9px;
+      color: var(--text-muted);
+      min-height: 30px;
+      padding: 7px 10px;
+    }
+
+    button.tab-button.active {
+      background: #ffffff;
+      border-color: var(--border-strong);
+      box-shadow: 0 4px 12px rgba(20, 12, 36, 0.08);
+      color: var(--text);
+    }
+
+    .screen {
+      display: grid;
+      gap: 14px;
+    }
+
+    .screen.hidden {
+      display: none;
     }
 
     .size-controls {
@@ -164,6 +199,96 @@
       background: #fbfaff;
       color: var(--text-muted);
       min-height: 18px;
+    }
+
+    .status.hidden {
+      display: none;
+    }
+
+    .export-panel {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+    }
+
+    .section-title {
+      align-items: center;
+      display: flex;
+      gap: 8px;
+      justify-content: space-between;
+    }
+
+    .section-title h2 {
+      font-size: 14px;
+      line-height: 1.25;
+      margin: 0;
+    }
+
+    .slice-list {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      display: grid;
+      max-height: 230px;
+      min-height: 44px;
+      overflow: auto;
+    }
+
+    .slice-list.empty {
+      align-items: center;
+      color: var(--text-muted);
+      padding: 12px;
+    }
+
+    .slice-row {
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 10px;
+      min-height: 34px;
+      padding: 7px 10px;
+    }
+
+    .slice-row:last-child {
+      border-bottom: 0;
+    }
+
+    .slice-row input {
+      width: auto;
+    }
+
+    .slice-row span {
+      font-weight: 600;
+    }
+
+    .scale-options {
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .scale-options label {
+      align-items: center;
+      display: flex;
+      font-weight: 500;
+      gap: 6px;
+    }
+
+    .scale-options input {
+      width: auto;
+    }
+
+    .download-link {
+      color: var(--accent);
+      display: none;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .download-link.visible {
+      display: inline-flex;
     }
 
     .progress {
@@ -308,56 +433,87 @@
   <main>
     <div class="topbar">
       <h1>Afeet - E-mail MKT Automator</h1>
+      <div class="view-tabs" role="tablist" aria-label="Funcionalidades do plugin">
+        <button id="skuViewTab" class="tab-button active" type="button" role="tab" aria-selected="true" aria-controls="skuScreen">Configurar SKUs</button>
+        <button id="exportViewTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="exportScreen">Exportar fatias</button>
+      </div>
       <div class="size-controls" aria-hidden="true"></div>
     </div>
 
     <div id="selection" class="selection">Carregando seleção...</div>
     <div id="fatalError" class="error-panel"></div>
 
-    <label>
-      Briefing da demanda
-      <textarea id="briefing" placeholder="Cole aqui o briefing completo da Hubee"></textarea>
-    </label>
+    <section id="skuScreen" class="screen" role="tabpanel" aria-labelledby="skuViewTab">
+      <label>
+        Briefing da demanda
+        <textarea id="briefing" placeholder="Cole aqui o briefing da Afeet (apenas com os produtos)"></textarea>
+      </label>
 
-    <div class="actions">
-      <button id="analyze" class="secondary">Analisar briefing</button>
-      <button id="resolveImages" class="secondary" disabled>Buscar imagens</button>
-      <button id="apply" class="primary" disabled>Aplicar no Figma</button>
-    </div>
-
-    <div id="status" class="status">Cole o briefing para começar.</div>
-    <div class="progress" aria-label="Progresso">
-      <div class="progress-meta">
-        <span id="progressLabel">Aguardando</span>
-        <span id="progressValue">0%</span>
+      <div class="actions">
+        <button id="analyze" class="secondary">Analisar briefing</button>
+        <button id="resolveImages" class="secondary" disabled>Buscar imagens</button>
+        <button id="apply" class="primary" disabled>Aplicar no Figma</button>
       </div>
-      <div class="progress-track">
-        <div id="progressFill" class="progress-fill"></div>
-      </div>
-    </div>
 
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Título</th>
-            <th>Valor à vista</th>
-            <th>Número de parcelas</th>
-            <th>Valor parcelado</th>
-            <th>Desconto</th>
-            <th>CTA</th>
-            <th>Imagem</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody id="products">
-          <tr>
-            <td colspan="9" class="muted">Nenhum produto analisado.</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+      <div id="status" class="status hidden"></div>
+      <div class="progress" aria-label="Progresso">
+        <div class="progress-meta">
+          <span id="progressLabel">Aguardando</span>
+          <span id="progressValue">0%</span>
+        </div>
+        <div class="progress-track">
+          <div id="progressFill" class="progress-fill"></div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Título</th>
+              <th>Valor à vista</th>
+              <th>Número de parcelas</th>
+              <th>Valor parcelado</th>
+              <th>Desconto</th>
+              <th>CTA</th>
+              <th>Imagem</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="products">
+            <tr>
+              <td colspan="9" class="muted">Nenhum produto analisado.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="exportScreen" class="screen hidden" role="tabpanel" aria-labelledby="exportViewTab">
+      <div class="export-panel" aria-label="Exportação AFEET">
+        <div class="section-title">
+          <h2>Exportação AFEET</h2>
+          <a id="downloadSlices" class="download-link" download="Fatias.zip">Baixar Fatias.zip</a>
+        </div>
+        <div class="actions">
+          <button id="detectSlices" class="secondary">Detectar Fatias</button>
+          <button id="selectAllSlices" class="secondary" disabled>Selecionar Tudo</button>
+          <button id="clearSlices" class="secondary" disabled>Limpar Seleção</button>
+        </div>
+        <div id="exportStatus" class="status">Selecione o frame principal do e-mail e detecte as fatias.</div>
+        <div id="sliceList" class="slice-list empty">Nenhuma fatia detectada.</div>
+        <div class="scale-options" aria-label="Escala de exportação">
+          <span class="muted">Escala:</span>
+          <label><input type="radio" name="sliceScale" value="1"> 1x</label>
+          <label><input type="radio" name="sliceScale" value="2" checked> 2x</label>
+          <label><input type="radio" name="sliceScale" value="3"> 3x</label>
+        </div>
+        <div class="actions">
+          <button id="exportSlices" class="primary" disabled>Exportar Selecionadas</button>
+        </div>
+      </div>
+    </section>
   </main>
   <div id="resizeHandle" class="resize-handle" title="Arraste para redimensionar"></div>
 
@@ -373,10 +529,15 @@
     console.log("[Afeet - E-mail MKT Automator] ui loaded");
 
     const state = {
+      activeView: "sku",
       products: [],
       global: {},
       resolving: false,
       applying: false,
+      slices: [],
+      detectingSlices: false,
+      exportingSlices: false,
+      lastDownloadUrl: "",
       uiSize: {
         width: 1080,
         height: 860
@@ -386,10 +547,21 @@
     };
 
     const el = {
+      skuViewTab: document.getElementById("skuViewTab"),
+      exportViewTab: document.getElementById("exportViewTab"),
+      skuScreen: document.getElementById("skuScreen"),
+      exportScreen: document.getElementById("exportScreen"),
       briefing: document.getElementById("briefing"),
       analyze: document.getElementById("analyze"),
       resolveImages: document.getElementById("resolveImages"),
       apply: document.getElementById("apply"),
+      detectSlices: document.getElementById("detectSlices"),
+      selectAllSlices: document.getElementById("selectAllSlices"),
+      clearSlices: document.getElementById("clearSlices"),
+      exportSlices: document.getElementById("exportSlices"),
+      sliceList: document.getElementById("sliceList"),
+      downloadSlices: document.getElementById("downloadSlices"),
+      exportStatus: document.getElementById("exportStatus"),
       status: document.getElementById("status"),
       products: document.getElementById("products"),
       selection: document.getElementById("selection"),
@@ -400,9 +572,16 @@
       progressFill: document.getElementById("progressFill")
     };
 
+    el.skuViewTab.addEventListener("click", () => switchView("sku"));
+    el.exportViewTab.addEventListener("click", () => switchView("export"));
     el.analyze.addEventListener("click", analyzeBriefing);
     el.resolveImages.addEventListener("click", resolveImages);
     el.apply.addEventListener("click", applyProducts);
+    el.detectSlices.addEventListener("click", detectSlices);
+    el.selectAllSlices.addEventListener("click", () => setAllSlicesSelected(true));
+    el.clearSlices.addEventListener("click", () => setAllSlicesSelected(false));
+    el.exportSlices.addEventListener("click", exportSelectedSlices);
+    el.sliceList.addEventListener("change", handleSliceToggle);
     el.products.addEventListener("input", handleTableInput);
     document.querySelector(".size-controls").addEventListener("click", handleSizeClick);
     el.resizeHandle.addEventListener("mousedown", startResize);
@@ -412,9 +591,13 @@
     window.addEventListener("load", () => {
       window.setTimeout(() => {
         try {
-          el.briefing.focus({ preventScroll: true });
+          if (state.activeView === "sku") {
+            el.briefing.focus({ preventScroll: true });
+          }
         } catch (_error) {
-          el.briefing.focus();
+          if (state.activeView === "sku") {
+            el.briefing.focus();
+          }
         }
       }, 50);
     });
@@ -427,6 +610,27 @@
 
       if (message.type === "selection-summary") {
         el.selection.textContent = message.summary;
+      }
+
+      if (message.type === "slice-detect-complete") {
+        state.detectingSlices = false;
+        state.slices = (message.result && message.result.items) || [];
+        renderSlices();
+        updateButtons();
+        clearDownloadLink();
+        setExportStatus(state.slices.length
+          ? `${state.slices.length} fatia(s) detectada(s) em ${message.result.rootName}.`
+          : "Nenhuma fatia exportavel encontrada na seleção.");
+      }
+
+      if (message.type === "slice-export-progress") {
+        setExportStatus(`Exportando fatias: ${message.done}/${message.total}`);
+      }
+
+      if (message.type === "slice-export-complete") {
+        state.exportingSlices = false;
+        updateButtons();
+        handleSliceExportComplete(message.result || { files: [], failures: [] });
       }
 
       if (message.type === "resolve-progress") {
@@ -472,10 +676,35 @@
       if (message.type === "plugin-error") {
         state.resolving = false;
         state.applying = false;
+        state.detectingSlices = false;
+        state.exportingSlices = false;
         updateButtons();
         setStatus(message.error || "Erro no plugin.");
+        setExportStatus(message.error || "Erro no plugin.");
       }
     };
+
+    function switchView(view) {
+      state.activeView = view === "export" ? "export" : "sku";
+      const isSkuView = state.activeView === "sku";
+
+      el.skuScreen.classList.toggle("hidden", !isSkuView);
+      el.exportScreen.classList.toggle("hidden", isSkuView);
+      el.skuViewTab.classList.toggle("active", isSkuView);
+      el.exportViewTab.classList.toggle("active", !isSkuView);
+      el.skuViewTab.setAttribute("aria-selected", isSkuView ? "true" : "false");
+      el.exportViewTab.setAttribute("aria-selected", isSkuView ? "false" : "true");
+
+      if (isSkuView) {
+        window.setTimeout(() => {
+          try {
+            el.briefing.focus({ preventScroll: true });
+          } catch (_error) {
+            el.briefing.focus();
+          }
+        }, 0);
+      }
+    }
 
     function analyzeBriefing() {
       const parsed = parseBriefing(el.briefing.value);
@@ -524,6 +753,112 @@
           }
         }
       }, "*");
+    }
+
+    function detectSlices() {
+      if (state.detectingSlices || state.exportingSlices) {
+        return;
+      }
+
+      state.detectingSlices = true;
+      state.slices = [];
+      renderSlices();
+      updateButtons();
+      clearDownloadLink();
+      setExportStatus("Detectando fatias na seleção atual...");
+      parent.postMessage({
+        pluginMessage: {
+          type: "detect-slices"
+        }
+      }, "*");
+    }
+
+    function exportSelectedSlices() {
+      const selectedItems = state.slices.filter((item) => item.selected);
+      if (selectedItems.length === 0 || state.exportingSlices) {
+        return;
+      }
+
+      state.exportingSlices = true;
+      updateButtons();
+      clearDownloadLink();
+      setExportStatus("Exportando PNGs selecionados...");
+      parent.postMessage({
+        pluginMessage: {
+          type: "export-slices",
+          items: selectedItems,
+          scale: selectedSliceScale()
+        }
+      }, "*");
+    }
+
+    function handleSliceToggle(event) {
+      const input = event.target;
+      if (!input.matches("input[data-slice-index]")) {
+        return;
+      }
+
+      const index = Number(input.dataset.sliceIndex);
+      if (Number.isInteger(index) && state.slices[index]) {
+        state.slices[index].selected = input.checked;
+        updateButtons();
+      }
+    }
+
+    function setAllSlicesSelected(selected) {
+      state.slices = state.slices.map((item) => ({
+        ...item,
+        selected
+      }));
+      renderSlices();
+      updateButtons();
+    }
+
+    function renderSlices() {
+      if (state.slices.length === 0) {
+        el.sliceList.classList.add("empty");
+        el.sliceList.textContent = state.detectingSlices ? "Detectando fatias..." : "Nenhuma fatia detectada.";
+        return;
+      }
+
+      el.sliceList.classList.remove("empty");
+      el.sliceList.innerHTML = state.slices.map((item, index) => `
+        <label class="slice-row">
+          <input type="checkbox" data-slice-index="${index}" ${item.selected ? "checked" : ""}>
+          <span>${escapeHtml(item.label)}</span>
+        </label>
+      `).join("");
+    }
+
+    async function handleSliceExportComplete(result) {
+      const files = result.files || [];
+      const failures = result.failures || [];
+
+      if (files.length > 0) {
+        const zipBytes = createZip(files.map((file) => ({
+          name: `Fatias/${file.name}`,
+          bytes: toUint8Array(file.bytes)
+        })));
+        const blob = new Blob([zipBytes], { type: "application/zip" });
+        const url = URL.createObjectURL(blob);
+
+        clearDownloadLink();
+        state.lastDownloadUrl = url;
+        el.downloadSlices.href = url;
+        el.downloadSlices.classList.add("visible");
+        el.downloadSlices.click();
+      }
+
+      const failureText = failures.length
+        ? ` ${failures.length} falha(s): ${failures.map((failure) => `${failure.label}: ${failure.reason}`).join(" | ")}`
+        : "";
+      setExportStatus(`Exportacao concluida. ${files.length} arquivo(s) exportado(s).${failureText}`);
+    }
+
+    function selectedSliceScale() {
+      const checked = document.querySelector('input[name="sliceScale"]:checked');
+      const value = Number(checked && checked.value);
+      return value === 1 || value === 2 || value === 3 ? value : 2;
     }
 
     function parseBriefing(rawText) {
@@ -695,12 +1030,24 @@
 
     function updateButtons() {
       const hasProducts = state.products.length > 0;
-      el.resolveImages.disabled = !hasProducts || state.resolving || state.applying;
-      el.apply.disabled = !hasProducts || state.resolving || state.applying;
+      const hasSlices = state.slices.length > 0;
+      const hasSelectedSlices = state.slices.some((item) => item.selected);
+      const busy = state.resolving || state.applying || state.detectingSlices || state.exportingSlices;
+      el.resolveImages.disabled = !hasProducts || busy;
+      el.apply.disabled = !hasProducts || busy;
+      el.detectSlices.disabled = busy;
+      el.selectAllSlices.disabled = !hasSlices || busy;
+      el.clearSlices.disabled = !hasSlices || busy;
+      el.exportSlices.disabled = !hasSelectedSlices || busy;
     }
 
     function setStatus(message) {
       el.status.textContent = message;
+      el.status.classList.toggle("hidden", !message);
+    }
+
+    function setExportStatus(message) {
+      el.exportStatus.textContent = message;
     }
 
     function setProgress(label, done, total) {
@@ -794,6 +1141,154 @@
         // If postMessage itself fails, the visible panel still carries the error.
       }
     }
+
+    function clearDownloadLink() {
+      if (state.lastDownloadUrl) {
+        URL.revokeObjectURL(state.lastDownloadUrl);
+        state.lastDownloadUrl = "";
+      }
+
+      el.downloadSlices.removeAttribute("href");
+      el.downloadSlices.classList.remove("visible");
+    }
+
+    function toUint8Array(value) {
+      if (value instanceof Uint8Array) {
+        return value;
+      }
+
+      if (value instanceof ArrayBuffer) {
+        return new Uint8Array(value);
+      }
+
+      if (value && value.buffer instanceof ArrayBuffer) {
+        return new Uint8Array(value.buffer);
+      }
+
+      if (Array.isArray(value)) {
+        return new Uint8Array(value);
+      }
+
+      return new Uint8Array(0);
+    }
+
+    function createZip(files) {
+      const encoder = new TextEncoder();
+      const localParts = [];
+      const centralParts = [];
+      let offset = 0;
+
+      for (const file of files) {
+        const nameBytes = encoder.encode(file.name);
+        const data = toUint8Array(file.bytes);
+        const crc = crc32(data);
+        const localHeader = new Uint8Array(30 + nameBytes.length);
+        const localView = new DataView(localHeader.buffer);
+
+        localView.setUint32(0, 0x04034b50, true);
+        localView.setUint16(4, 20, true);
+        localView.setUint16(6, 0x0800, true);
+        localView.setUint16(8, 0, true);
+        localView.setUint16(10, zipTime(), true);
+        localView.setUint16(12, zipDate(), true);
+        localView.setUint32(14, crc, true);
+        localView.setUint32(18, data.length, true);
+        localView.setUint32(22, data.length, true);
+        localView.setUint16(26, nameBytes.length, true);
+        localView.setUint16(28, 0, true);
+        localHeader.set(nameBytes, 30);
+
+        localParts.push(localHeader, data);
+
+        const centralHeader = new Uint8Array(46 + nameBytes.length);
+        const centralView = new DataView(centralHeader.buffer);
+        centralView.setUint32(0, 0x02014b50, true);
+        centralView.setUint16(4, 20, true);
+        centralView.setUint16(6, 20, true);
+        centralView.setUint16(8, 0x0800, true);
+        centralView.setUint16(10, 0, true);
+        centralView.setUint16(12, zipTime(), true);
+        centralView.setUint16(14, zipDate(), true);
+        centralView.setUint32(16, crc, true);
+        centralView.setUint32(20, data.length, true);
+        centralView.setUint32(24, data.length, true);
+        centralView.setUint16(28, nameBytes.length, true);
+        centralView.setUint16(30, 0, true);
+        centralView.setUint16(32, 0, true);
+        centralView.setUint16(34, 0, true);
+        centralView.setUint16(36, 0, true);
+        centralView.setUint32(38, 0, true);
+        centralView.setUint32(42, offset, true);
+        centralHeader.set(nameBytes, 46);
+
+        centralParts.push(centralHeader);
+        offset += localHeader.length + data.length;
+      }
+
+      const centralSize = totalByteLength(centralParts);
+      const end = new Uint8Array(22);
+      const endView = new DataView(end.buffer);
+      endView.setUint32(0, 0x06054b50, true);
+      endView.setUint16(8, files.length, true);
+      endView.setUint16(10, files.length, true);
+      endView.setUint32(12, centralSize, true);
+      endView.setUint32(16, offset, true);
+
+      return concatUint8Arrays([...localParts, ...centralParts, end]);
+    }
+
+    function totalByteLength(parts) {
+      return parts.reduce((sum, part) => sum + part.length, 0);
+    }
+
+    function concatUint8Arrays(parts) {
+      const total = totalByteLength(parts);
+      const output = new Uint8Array(total);
+      let offset = 0;
+
+      for (const part of parts) {
+        output.set(part, offset);
+        offset += part.length;
+      }
+
+      return output;
+    }
+
+    function zipTime() {
+      const date = new Date();
+      return (date.getHours() << 11) | (date.getMinutes() << 5) | Math.floor(date.getSeconds() / 2);
+    }
+
+    function zipDate() {
+      const date = new Date();
+      return ((date.getFullYear() - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate();
+    }
+
+    function crc32(bytes) {
+      let crc = 0xffffffff;
+
+      for (let index = 0; index < bytes.length; index += 1) {
+        crc = (crc >>> 8) ^ CRC_TABLE[(crc ^ bytes[index]) & 0xff];
+      }
+
+      return (crc ^ 0xffffffff) >>> 0;
+    }
+
+    const CRC_TABLE = (() => {
+      const table = new Uint32Array(256);
+
+      for (let index = 0; index < 256; index += 1) {
+        let value = index;
+
+        for (let bit = 0; bit < 8; bit += 1) {
+          value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
+        }
+
+        table[index] = value >>> 0;
+      }
+
+      return table;
+    })();
 
     function normalizeDiscountText(value) {
       const text = String(value || "").replace(/¨/g, "").replace(/\s+/g, " ").trim();
