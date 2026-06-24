@@ -160,6 +160,40 @@
       display: none;
     }
 
+    .sku-stage {
+      display: grid;
+      gap: 14px;
+    }
+
+    .sku-stage.hidden,
+    .progress.hidden {
+      display: none;
+    }
+
+    .review-header {
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: space-between;
+    }
+
+    .review-summary {
+      color: var(--text-muted);
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    .loading-panel {
+      align-content: center;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: grid;
+      gap: 12px;
+      min-height: 210px;
+      padding: 18px;
+    }
+
     .size-controls {
       display: none;
     }
@@ -329,7 +363,7 @@
 
     table {
       border-collapse: collapse;
-      min-width: 1380px;
+      min-width: 760px;
       width: 100%;
     }
 
@@ -444,49 +478,63 @@
     <div id="fatalError" class="error-panel"></div>
 
     <section id="skuScreen" class="screen" role="tabpanel" aria-labelledby="skuViewTab">
-      <label>
-        Briefing da demanda
-        <textarea id="briefing" placeholder="Cole aqui o briefing da Afeet (apenas com os produtos)"></textarea>
-      </label>
+      <div id="briefingStage" class="sku-stage">
+        <label>
+          Briefing da demanda
+          <textarea id="briefing" placeholder="Cole aqui o briefing da Afeet (apenas com os produtos)"></textarea>
+        </label>
 
-      <div class="actions">
-        <button id="analyze" class="secondary">Analisar briefing</button>
-        <button id="resolveImages" class="secondary" disabled>Buscar imagens</button>
-        <button id="apply" class="primary" disabled>Aplicar no Figma</button>
-      </div>
+        <div id="status" class="status hidden"></div>
 
-      <div id="status" class="status hidden"></div>
-      <div class="progress" aria-label="Progresso">
-        <div class="progress-meta">
-          <span id="progressLabel">Aguardando</span>
-          <span id="progressValue">0%</span>
-        </div>
-        <div class="progress-track">
-          <div id="progressFill" class="progress-fill"></div>
+        <div class="actions">
+          <button id="analyze" class="secondary">Analisar briefing</button>
         </div>
       </div>
 
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Título</th>
-              <th>Valor à vista</th>
-              <th>Número de parcelas</th>
-              <th>Valor parcelado</th>
-              <th>Desconto</th>
-              <th>CTA</th>
-              <th>Imagem</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="products">
-            <tr>
-              <td colspan="9" class="muted">Nenhum produto analisado.</td>
-            </tr>
-          </tbody>
-        </table>
+      <div id="loadingStage" class="sku-stage hidden">
+        <div class="loading-panel">
+          <div class="review-summary">Analisando briefing e buscando imagens...</div>
+          <div class="progress" aria-label="Progresso">
+            <div class="progress-meta">
+              <span id="progressLabel">Aguardando</span>
+              <span id="progressValue">0%</span>
+            </div>
+            <div class="progress-track">
+              <div id="progressFill" class="progress-fill"></div>
+            </div>
+          </div>
+          <div id="loadingStatus" class="status">Preparando análise...</div>
+        </div>
+      </div>
+
+      <div id="reviewStage" class="sku-stage hidden">
+        <div class="review-header">
+          <div id="reviewSummary" class="review-summary"></div>
+          <div class="actions">
+            <button id="editBriefing" class="secondary">Voltar e editar briefing</button>
+            <button id="apply" class="primary" disabled>Aplicar no Figma</button>
+          </div>
+        </div>
+
+        <div id="reviewStatus" class="status hidden"></div>
+        <div id="reviewProgress" class="progress hidden" aria-label="Progresso de aplicação">
+          <div class="progress-meta">
+            <span id="reviewProgressLabel">Aguardando</span>
+            <span id="reviewProgressValue">0%</span>
+          </div>
+          <div class="progress-track">
+            <div id="reviewProgressFill" class="progress-fill"></div>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr id="productsHead"></tr>
+            </thead>
+            <tbody id="products"></tbody>
+          </table>
+        </div>
       </div>
     </section>
 
@@ -530,8 +578,11 @@
 
     const state = {
       activeView: "sku",
+      skuStep: "idle",
       products: [],
       global: {},
+      skuModels: [],
+      skuWarnings: [],
       resolving: false,
       applying: false,
       slices: [],
@@ -551,9 +602,12 @@
       exportViewTab: document.getElementById("exportViewTab"),
       skuScreen: document.getElementById("skuScreen"),
       exportScreen: document.getElementById("exportScreen"),
+      briefingStage: document.getElementById("briefingStage"),
+      loadingStage: document.getElementById("loadingStage"),
+      reviewStage: document.getElementById("reviewStage"),
       briefing: document.getElementById("briefing"),
       analyze: document.getElementById("analyze"),
-      resolveImages: document.getElementById("resolveImages"),
+      editBriefing: document.getElementById("editBriefing"),
       apply: document.getElementById("apply"),
       detectSlices: document.getElementById("detectSlices"),
       selectAllSlices: document.getElementById("selectAllSlices"),
@@ -563,6 +617,14 @@
       downloadSlices: document.getElementById("downloadSlices"),
       exportStatus: document.getElementById("exportStatus"),
       status: document.getElementById("status"),
+      loadingStatus: document.getElementById("loadingStatus"),
+      reviewStatus: document.getElementById("reviewStatus"),
+      reviewSummary: document.getElementById("reviewSummary"),
+      reviewProgress: document.getElementById("reviewProgress"),
+      reviewProgressLabel: document.getElementById("reviewProgressLabel"),
+      reviewProgressValue: document.getElementById("reviewProgressValue"),
+      reviewProgressFill: document.getElementById("reviewProgressFill"),
+      productsHead: document.getElementById("productsHead"),
       products: document.getElementById("products"),
       selection: document.getElementById("selection"),
       fatalError: document.getElementById("fatalError"),
@@ -575,7 +637,7 @@
     el.skuViewTab.addEventListener("click", () => switchView("sku"));
     el.exportViewTab.addEventListener("click", () => switchView("export"));
     el.analyze.addEventListener("click", analyzeBriefing);
-    el.resolveImages.addEventListener("click", resolveImages);
+    el.editBriefing.addEventListener("click", editBriefing);
     el.apply.addEventListener("click", applyProducts);
     el.detectSlices.addEventListener("click", detectSlices);
     el.selectAllSlices.addEventListener("click", () => setAllSlicesSelected(true));
@@ -591,11 +653,11 @@
     window.addEventListener("load", () => {
       window.setTimeout(() => {
         try {
-          if (state.activeView === "sku") {
+          if (state.activeView === "sku" && (state.skuStep === "idle" || state.skuStep === "error")) {
             el.briefing.focus({ preventScroll: true });
           }
         } catch (_error) {
-          if (state.activeView === "sku") {
+          if (state.activeView === "sku" && (state.skuStep === "idle" || state.skuStep === "error")) {
             el.briefing.focus();
           }
         }
@@ -635,42 +697,54 @@
 
       if (message.type === "resolve-progress") {
         updateProduct(message.rowIndex, message.product);
-        renderProducts();
         setProgress("Buscando imagens", message.done, message.total);
-        setStatus(`Buscando imagens: ${message.done}/${message.total}`);
+        setLoadingStatus(`Buscando imagens: ${message.done}/${message.total}`);
       }
 
       if (message.type === "resolve-complete") {
         state.resolving = false;
         state.products = message.products || [];
+        addProductWarningsFromSkuModels();
+        setSkuStep("review");
         renderProducts();
         updateButtons();
         const failures = state.products.filter((product) => !product.imageUrl).length;
         if (failures) {
           const firstErrorProduct = state.products.find((product) => product.imageError);
           const detail = firstErrorProduct ? ` Primeiro erro: ${firstErrorProduct.imageError}` : "";
-          setStatus(`Busca concluida com ${failures} imagem(ns) pendente(s).${detail}`);
+          setReviewStatus(`Busca concluida com ${failures} imagem(ns) pendente(s).${detail}`);
         } else {
-          setStatus("Todas as imagens foram encontradas.");
+          setReviewStatus("Todas as imagens foram encontradas.");
         }
-        setProgress("Busca concluída", state.products.length, state.products.length);
+        updateReviewSummary();
+        setProgress("Busca concluida", state.products.length, state.products.length);
+      }
+
+      if (message.type === "sku-models-detected") {
+        const result = message.result || { items: [], warnings: [] };
+        state.skuModels = result.items || [];
+        state.skuWarnings = result.warnings || [];
+        setLoadingStatus(`SKUs identificados: ${state.skuModels.length}. Buscando imagens...`);
+        resolveImages();
       }
 
       if (message.type === "apply-progress") {
-        setProgress("Aplicando no Figma", message.done, message.total);
-        setStatus(`Aplicando no Figma: ${message.done}/${message.total}`);
+        setSkuStep("applying");
+        setReviewProgress("Aplicando no Figma", message.done, message.total);
+        setReviewStatus(`Aplicando no Figma: ${message.done}/${message.total}`);
       }
 
       if (message.type === "apply-complete") {
         state.applying = false;
+        setSkuStep("done");
         updateButtons();
         const result = message.result;
         const imageFailures = (result.results || []).filter((item) => item.fields && item.fields.image === false).length;
         const errored = (result.results || []).find((item) => item.errors && item.errors.length);
         const detail = errored ? ` Primeiro erro: ${errored.sku}: ${errored.errors[0]}` : "";
         const skipped = result.skipped ? ` ${result.skipped} produto(s) ficaram sem aplicar por falta de SKU.` : "";
-        setStatus(`Aplicado: ${result.applied}/${result.requested} produto(s).${skipped} Imagens pendentes: ${imageFailures}.${detail}`);
-        setProgress("Aplicação concluída", result.applied, result.requested);
+        setReviewStatus(`Aplicado: ${result.applied}/${result.requested} produto(s).${skipped} Imagens pendentes: ${imageFailures}.${detail}`);
+        setReviewProgress("Aplicacao concluida", result.applied, result.requested);
       }
 
       if (message.type === "plugin-error") {
@@ -678,8 +752,12 @@
         state.applying = false;
         state.detectingSlices = false;
         state.exportingSlices = false;
+        if (state.activeView === "sku" && state.skuStep === "loading") {
+          setSkuStep("error");
+          setStatus(message.error || "Erro no plugin.");
+        }
         updateButtons();
-        setStatus(message.error || "Erro no plugin.");
+        setReviewStatus(message.error || "Erro no plugin.");
         setExportStatus(message.error || "Erro no plugin.");
       }
     };
@@ -695,7 +773,7 @@
       el.skuViewTab.setAttribute("aria-selected", isSkuView ? "true" : "false");
       el.exportViewTab.setAttribute("aria-selected", isSkuView ? "false" : "true");
 
-      if (isSkuView) {
+      if (isSkuView && (state.skuStep === "idle" || state.skuStep === "error")) {
         window.setTimeout(() => {
           try {
             el.briefing.focus({ preventScroll: true });
@@ -707,18 +785,34 @@
     }
 
     function analyzeBriefing() {
+      const rawBriefing = el.briefing.value;
+      if (!String(rawBriefing || "").trim()) {
+        setSkuStep("error");
+        setStatus("Cole o briefing da demanda antes de analisar.");
+        return;
+      }
+
       const parsed = parseBriefing(el.briefing.value);
       state.global = parsed.global;
       state.products = parsed.products;
-      renderProducts();
+      state.skuModels = [];
+      state.skuWarnings = [];
       updateButtons();
 
       if (state.products.length === 0) {
+        setSkuStep("error");
         setStatus("Nenhum produto encontrado. Confira se a secao VITRINES usa linhas como '1 - Nome do produto'.");
         return;
       }
 
-      setStatus(`${state.products.length} produto(s) encontrado(s).`);
+      setSkuStep("loading");
+      setProgress("Analisando briefing", 1, 3);
+      setLoadingStatus(`${state.products.length} produto(s) encontrado(s). Identificando SKUs no Figma...`);
+      parent.postMessage({
+        pluginMessage: {
+          type: "detect-sku-models"
+        }
+      }, "*");
     }
 
     function resolveImages() {
@@ -729,7 +823,7 @@
       state.resolving = true;
       updateButtons();
       setProgress("Buscando imagens", 0, state.products.length);
-      setStatus("Buscando imagens dos links...");
+      setLoadingStatus("Analisando briefing e buscando imagens...");
       parent.postMessage({
         pluginMessage: {
           type: "resolve-images",
@@ -742,8 +836,10 @@
     function applyProducts() {
       syncTableInputs();
       state.applying = true;
+      setSkuStep("applying");
       updateButtons();
-      setProgress("Aplicando no Figma", 0, state.products.length);
+      setReviewProgress("Aplicando no Figma", 0, state.products.length);
+      setReviewStatus("Aplicando produtos no Figma...");
       parent.postMessage({
         pluginMessage: {
           type: "apply-products",
@@ -790,6 +886,45 @@
           scale: selectedSliceScale()
         }
       }, "*");
+    }
+
+    function editBriefing() {
+      state.resolving = false;
+      state.applying = false;
+      setSkuStep("idle");
+      updateButtons();
+      window.setTimeout(() => {
+        try {
+          el.briefing.focus({ preventScroll: true });
+        } catch (_error) {
+          el.briefing.focus();
+        }
+      }, 0);
+    }
+
+    function setSkuStep(step) {
+      state.skuStep = step;
+      const showIdle = step === "idle" || step === "error";
+      const showLoading = step === "loading";
+      const showReview = step === "review" || step === "applying" || step === "done";
+
+      el.briefingStage.classList.toggle("hidden", !showIdle);
+      el.loadingStage.classList.toggle("hidden", !showLoading);
+      el.reviewStage.classList.toggle("hidden", !showReview);
+      el.reviewProgress.classList.toggle("hidden", step !== "applying" && step !== "done");
+
+      if (step !== "error" && showIdle) {
+        setStatus("");
+      }
+    }
+
+    function setLoadingStatus(message) {
+      el.loadingStatus.textContent = message || "";
+    }
+
+    function setReviewStatus(message) {
+      el.reviewStatus.textContent = message || "";
+      el.reviewStatus.classList.toggle("hidden", !message);
     }
 
     function handleSliceToggle(event) {
@@ -880,6 +1015,7 @@
             title: startMatch[2].trim(),
             url: "",
             price: "",
+            oldPrice: "",
             cashPrice: "",
             installmentCount: "",
             installmentValue: "",
@@ -907,7 +1043,7 @@
           continue;
         }
 
-        if (/R\$\s*[\d.]+,\d{2}/i.test(line)) {
+        if (/(?:R\$\s*)?[\d.]+,\d{2}/i.test(line)) {
           applyPriceLine(current, line, global);
         }
       }
@@ -926,14 +1062,69 @@
 
     function applyPriceLine(product, line, global) {
       const clean = line.replace(/\s+/g, " ").trim();
+      const dePorPrice = parseDePorPrice(clean);
+      const parceladoPrice = parseParceladoPrice(clean);
+      const aVistaPrice = parseAVistaPrice(clean);
+
+      if (dePorPrice.oldPrice || dePorPrice.cashPrice) {
+        product.oldPrice = dePorPrice.oldPrice;
+        product.cashPrice = dePorPrice.cashPrice;
+        product.price = product.cashPrice;
+        product.installmentCount = "";
+        product.installmentValue = "";
+        product.discount = dePorPrice.discount;
+        return;
+      }
+
+      product.cashPrice = parceladoPrice.cashPrice || aVistaPrice.cashPrice;
+      product.price = product.cashPrice;
+      product.installmentCount = parceladoPrice.installmentCount;
+      product.installmentValue = parceladoPrice.installmentValue;
+      product.discount = parceladoPrice.discount || aVistaPrice.discount;
+    }
+
+    function parseParceladoPrice(text) {
+      const clean = String(text || "").replace(/\s+/g, " ").trim();
       const priceMatches = [...clean.matchAll(/R\$\s*[\d.]+,\d{2}/gi)];
       const installmentMatch = clean.match(/(\d+)\s*x\s+de\s+(R\$\s*[\d.]+,\d{2})/i);
 
-      product.cashPrice = priceMatches[0] ? normalizeCurrencyText(priceMatches[0][0]) : "";
-      product.price = product.cashPrice;
-      product.installmentCount = installmentMatch ? `${Number(installmentMatch[1])}x` : "";
-      product.installmentValue = installmentMatch ? normalizeCurrencyText(installmentMatch[2]) : "";
-      product.discount = normalizeDiscountText(clean);
+      return {
+        cashPrice: priceMatches[0] ? normalizeCurrencyText(priceMatches[0][0]) : "",
+        installmentCount: installmentMatch ? `${Number(installmentMatch[1])}x` : "",
+        installmentValue: installmentMatch ? normalizeCurrencyText(installmentMatch[2]) : "",
+        discount: normalizeDiscountText(clean)
+      };
+    }
+
+    function parseDePorPrice(text) {
+      const clean = String(text || "").replace(/\s+/g, " ").trim();
+      const currencyPattern = "(?:R\\$\\s*)*([\\d.]+,\\d{2})";
+      const dePorMatch = clean.match(new RegExp(`\\bDE\\s*:?\\s*${currencyPattern}\\s+POR\\s*:?\\s*${currencyPattern}`, "i"));
+
+      if (!dePorMatch) {
+        console.warn(`[Afeet - E-mail MKT Automator] Linha DE/POR nao reconhecida: ${clean}`);
+        return {
+          oldPrice: "",
+          cashPrice: "",
+          discount: ""
+        };
+      }
+
+      return {
+        oldPrice: normalizeCurrencyAmount(dePorMatch[1]),
+        cashPrice: normalizeCurrencyAmount(dePorMatch[2]),
+        discount: normalizeDiscountText(clean)
+      };
+    }
+
+    function parseAVistaPrice(text) {
+      const clean = String(text || "").replace(/\s+/g, " ").trim();
+      const priceMatch = clean.match(/(?:R\$\s*)?([\d.]+,\d{2})/i);
+
+      return {
+        cashPrice: priceMatch ? normalizeCurrencyAmount(priceMatch[1]) : "",
+        discount: normalizeDiscountText(clean)
+      };
     }
 
     function finalizeProduct(product, global, products) {
@@ -949,27 +1140,80 @@
     }
 
     function renderProducts() {
+      const columns = visibleProductColumns();
+
       if (state.products.length === 0) {
-        el.products.innerHTML = '<tr><td colspan="9" class="muted">Nenhum produto analisado.</td></tr>';
+        el.productsHead.innerHTML = columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("");
+        el.products.innerHTML = `<tr><td colspan="${columns.length}" class="muted">Nenhum produto analisado.</td></tr>`;
         return;
       }
 
+      el.productsHead.innerHTML = columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("");
       el.products.innerHTML = state.products.map((product, index) => `
         <tr>
-          <td class="index">${product.index || index + 1}</td>
-          <td><input data-index="${index}" data-field="title" value="${escapeAttribute(product.title)}"></td>
-          <td><input data-index="${index}" data-field="cashPrice" value="${escapeAttribute(product.cashPrice || product.price)}"></td>
-          <td><input data-index="${index}" data-field="installmentCount" value="${escapeAttribute(product.installmentCount)}"></td>
-          <td><input data-index="${index}" data-field="installmentValue" value="${escapeAttribute(product.installmentValue)}"></td>
-          <td><input data-index="${index}" data-field="discount" value="${escapeAttribute(product.discount)}"></td>
-          <td><input data-index="${index}" data-field="cta" value="${escapeAttribute(product.cta)}"></td>
+          ${columns.map((column) => renderProductCell(column, product, index)).join("")}
+        </tr>
+      `).join("");
+    }
+
+    function visibleProductColumns() {
+      const columns = [
+        { key: "index", label: "#" },
+        { key: "title", label: "Título", field: "title" }
+      ];
+      const priceLabel = state.skuModels.some((sku) => sku.model === "de_por")
+        ? "Valor à vista / valor novo"
+        : "Valor à vista";
+      const dynamicColumns = [
+        { key: "oldPrice", label: "Valor antigo", field: "oldPrice" },
+        { key: "cashPrice", label: priceLabel, field: "cashPrice", fallbackField: "price" },
+        { key: "installmentCount", label: "Número de parcelas", field: "installmentCount" },
+        { key: "installmentValue", label: "Valor parcelado", field: "installmentValue" },
+        { key: "discount", label: "Desconto", field: "discount" },
+        { key: "cta", label: "CTA", field: "cta" },
+        { key: "image", label: "Imagem" },
+        { key: "status", label: "Status" }
+      ];
+
+      return columns.concat(dynamicColumns.filter(shouldShowColumn));
+    }
+
+    function shouldShowColumn(column) {
+      if (column.key === "image") {
+        return state.products.some((product) => product.url || product.imageUrl || product.imageError);
+      }
+
+      if (column.key === "status") {
+        return state.products.some((product) => product.imageStatus || product.imageError || (product.warnings && product.warnings.length));
+      }
+
+      return state.products.some((product) => hasProductFieldValue(product, column.field, column.fallbackField));
+    }
+
+    function hasProductFieldValue(product, field, fallbackField) {
+      return Boolean(String(product[field] || "").trim() || (fallbackField && String(product[fallbackField] || "").trim()));
+    }
+
+    function renderProductCell(column, product, index) {
+      if (column.key === "index") {
+        return `<td class="index">${product.index || index + 1}</td>`;
+      }
+
+      if (column.key === "image") {
+        return `
           <td class="image-cell">
             <input data-index="${index}" data-field="imageUrl" value="${escapeAttribute(product.imageUrl)}" placeholder="URL da imagem">
             ${renderImageError(product)}
           </td>
-          <td class="status-cell">${renderImageStatus(product)}</td>
-        </tr>
-      `).join("");
+        `;
+      }
+
+      if (column.key === "status") {
+        return `<td class="status-cell">${renderProductStatus(product)}</td>`;
+      }
+
+      const value = column.fallbackField ? (product[column.field] || product[column.fallbackField]) : product[column.field];
+      return `<td><input data-index="${index}" data-field="${column.field}" value="${escapeAttribute(value)}"></td>`;
     }
 
     function renderImageError(product) {
@@ -991,6 +1235,20 @@
       }
 
       return '<span class="pill warn">Sem imagem</span>';
+    }
+
+    function renderProductStatus(product) {
+      const parts = [];
+      if (product.imageStatus || product.imageError) {
+        parts.push(renderImageStatus(product));
+      }
+
+      const warnings = product.warnings || [];
+      for (const warning of warnings) {
+        parts.push(`<div class="image-error">${escapeHtml(warning)}</div>`);
+      }
+
+      return parts.join("");
     }
 
     function handleTableInput(event) {
@@ -1028,13 +1286,101 @@
       }
     }
 
+    function addProductWarningsFromSkuModels() {
+      const skuByNumber = {};
+      for (const sku of state.skuModels) {
+        if (Number.isFinite(Number(sku.number))) {
+          skuByNumber[Number(sku.number)] = sku;
+        }
+      }
+
+      state.products = state.products.map((product, index) => {
+        const productNumber = Number(product.index || index + 1);
+        const sku = skuByNumber[productNumber];
+        const warnings = [];
+
+        if (!sku) {
+          warnings.push(`SKU ${productNumber} nao encontrado na selecao.`);
+        } else {
+          product.skuModel = sku.model;
+          product.skuName = sku.name;
+
+          if (sku.model === "unknown") {
+            warnings.push(`Modelo do SKU nao identificado em "${sku.name}".`);
+          }
+
+          if (sku.model === "de_por" && (!product.oldPrice || !(product.cashPrice || product.price))) {
+            warnings.push(`SKU [DE_POR] precisa de DE/POR valido no briefing.`);
+          }
+
+          if (sku.model === "parcelado" && !(product.cashPrice || product.price)) {
+            warnings.push(`SKU [PARCELADO] sem valor principal identificado.`);
+          }
+
+          if (sku.model === "a_vista" && !(product.cashPrice || product.price)) {
+            warnings.push(`SKU ${productNumber} está como [A_VISTA], mas nenhum valor à vista foi encontrado no briefing.`);
+          }
+        }
+
+        if (!product.title) {
+          warnings.push("Titulo do produto nao identificado.");
+        }
+
+        if (!product.url) {
+          warnings.push("Link do produto nao identificado.");
+        }
+
+        return {
+          ...product,
+          warnings: warnings.concat(product.warnings || [])
+        };
+      });
+    }
+
+    function updateReviewSummary() {
+      const imageFailures = state.products.filter((product) => !product.imageUrl).length;
+      const warningCount = state.products.reduce((sum, product) => sum + ((product.warnings || []).length), 0);
+      const modelSummary = summarizeSkuModels();
+      const imageText = imageFailures ? `${imageFailures} imagem(ns) pendente(s)` : "imagens encontradas";
+      const warningText = warningCount ? `${warningCount} aviso(s)` : "sem avisos";
+      el.reviewSummary.textContent = `${state.products.length} produto(s) encontrado(s), ${imageText}, ${warningText}.${modelSummary}`;
+    }
+
+    function summarizeSkuModels() {
+      if (!state.skuModels.length) {
+        return "";
+      }
+
+      const counts = state.skuModels.reduce((acc, sku) => {
+        acc[sku.model] = (acc[sku.model] || 0) + 1;
+        return acc;
+      }, {});
+      const parts = [];
+
+      if (counts.de_por) {
+        parts.push(`${counts.de_por} DE_POR`);
+      }
+      if (counts.parcelado) {
+        parts.push(`${counts.parcelado} PARCELADO`);
+      }
+      if (counts.a_vista) {
+        parts.push(`${counts.a_vista} A_VISTA`);
+      }
+      if (counts.unknown) {
+        parts.push(`${counts.unknown} sem modelo`);
+      }
+
+      return parts.length ? ` SKUs: ${parts.join(", ")}.` : "";
+    }
+
     function updateButtons() {
       const hasProducts = state.products.length > 0;
       const hasSlices = state.slices.length > 0;
       const hasSelectedSlices = state.slices.some((item) => item.selected);
       const busy = state.resolving || state.applying || state.detectingSlices || state.exportingSlices;
-      el.resolveImages.disabled = !hasProducts || busy;
-      el.apply.disabled = !hasProducts || busy;
+      el.analyze.disabled = busy;
+      el.editBriefing.disabled = busy;
+      el.apply.disabled = !hasProducts || busy || (state.skuStep !== "review" && state.skuStep !== "done");
       el.detectSlices.disabled = busy;
       el.selectAllSlices.disabled = !hasSlices || busy;
       el.clearSlices.disabled = !hasSlices || busy;
@@ -1058,6 +1404,16 @@
       el.progressLabel.textContent = safeTotal ? `${label} (${safeDone}/${safeTotal})` : label;
       el.progressValue.textContent = `${percent}%`;
       el.progressFill.style.width = `${percent}%`;
+    }
+
+    function setReviewProgress(label, done, total) {
+      const safeTotal = total > 0 ? total : 0;
+      const safeDone = safeTotal ? Math.min(done, safeTotal) : 0;
+      const percent = safeTotal ? Math.round((safeDone / safeTotal) * 100) : 0;
+
+      el.reviewProgressLabel.textContent = safeTotal ? `${label} (${safeDone}/${safeTotal})` : label;
+      el.reviewProgressValue.textContent = `${percent}%`;
+      el.reviewProgressFill.style.width = `${percent}%`;
     }
 
     function handleSizeClick(event) {
@@ -1302,6 +1658,11 @@
 
     function normalizeCurrencyText(value) {
       return String(value || "").replace(/\s+/g, " ").trim().replace(/^R\$\s*/, "R$ ");
+    }
+
+    function normalizeCurrencyAmount(value) {
+      const match = String(value || "").match(/[\d.]+,\d{2}/);
+      return match ? `R$ ${match[0]}` : "";
     }
 
     function parseCurrencyBR(value) {

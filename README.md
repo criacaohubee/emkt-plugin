@@ -43,27 +43,35 @@ O plugin procura cards com nomes numerados:
 
 ```text
 SKU 1
+SKU [PARCELADO] 1
+SKU [DE_POR] 1
+SKU [A_VISTA] 1
 SKU 2
 SKU 3
 ...
 SKU 20
 ```
 
-O produto 1 do briefing e aplicado no `SKU 1`, o produto 2 no `SKU 2` e assim por diante. A ordem visual ainda e usada para desempate, mas o numero no nome da camada tem prioridade.
+O produto 1 do briefing e aplicado no `SKU 1`, `SKU [PARCELADO] 1`, `SKU [DE_POR] 1` ou `SKU [A_VISTA] 1`, o produto 2 no SKU numerado como 2 e assim por diante. A ordem visual ainda e usada para desempate, mas o numero no nome da camada tem prioridade.
+
+Quando o nome do SKU contem `[PARCELADO]`, o plugin usa o parser de preco parcelado atual. Quando contem `[DE_POR]`, ele espera uma linha no briefing com `DE: R$ ... POR R$ ...` e preenche preco antigo e preco novo. Quando contem `[A_VISTA]`, ele preenche apenas o valor a vista e desconto opcional. Se o SKU nao tiver nenhuma dessas tags, o plugin aplica os campos seguros e avisa que o modelo nao foi identificado.
 
 Dentro de cada SKU, ele altera exclusivamente estas camadas por nome normalizado. Acentos e caixa nao importam.
 
 ```text
 DESCONTO
+BADGE DE DESCONTO
 TITULO ou TÍTULO
 IMAGEM
 NUMERO DE PARCELAS ou NÚMERO DE PARCELAS
 VALOR PARCELADO
 VALOR A VISTA ou VALOR À VISTA
+VALOR ANTIGO
+VALOR NOVO
 CTA
 ```
 
-Camadas auxiliares como `de`, `ou`, `sem juros`, grupos `PARCELADO`, `À VISTA`, `VALORES`, `CONTEÚDO` e `BADGE DE DESCONTO` nao sao alteradas.
+Camadas auxiliares como `de`, `ou`, `sem juros`, grupos `PARCELADO`, `À VISTA`, `VALORES` e `CONTEÚDO` nao sao alteradas.
 
 ## Padrao esperado do briefing
 

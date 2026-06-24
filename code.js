@@ -26,12 +26,14 @@ const productImagePendingCache = {};
 const figmaImageHashCache = {};
 
 const FIELD_ALIASES = {
-  discount: ["DESCONTO", "PORCENTAGEM DE DESCONTO"],
+  discount: ["DESCONTO", "PORCENTAGEM DE DESCONTO", "BADGE DE DESCONTO"],
   title: ["TITULO"],
   image: ["IMAGEM"],
   installmentCount: ["NUMERO DE PARCELAS"],
   installmentValue: ["VALOR PARCELADO"],
-  cashPrice: ["VALOR A VISTA"],
+  cashPrice: ["VALOR A VISTA", "VALOR NOVO"],
+  oldPrice: ["VALOR ANTIGO"],
+  newPrice: ["VALOR NOVO", "VALOR A VISTA"],
   cta: ["CTA"]
 };
 
@@ -42,6 +44,12 @@ figma.ui.onmessage = async (message) => {
   try {
     if (message.type === "resolve-images") {
       await resolveProductImages(message.products || [], message.proxyTemplate || "");
+      return;
+    }
+
+    if (message.type === "detect-sku-models") {
+      const result = detectSelectedSkuModels();
+      figma.ui.postMessage({ type: "sku-models-detected", result });
       return;
     }
 
@@ -109,6 +117,38 @@ function safeFindSkuNodes(root) {
   } catch (_error) {
     return [];
   }
+}
+
+function detectSelectedSkuModels() {
+  const root = figma.currentPage.selection[0];
+  if (!root) {
+    throw new Error("Selecione o frame do e-mail ou da vitrine antes de analisar o briefing.");
+  }
+
+  const skuNodes = findSkuNodes(root);
+  const items = skuNodes.map((node) => {
+    const model = detectSkuModel(node.name);
+    return {
+      id: node.id,
+      name: node.name,
+      number: skuNumber(node.name),
+      model: model || "unknown"
+    };
+  });
+
+  const warnings = items
+    .filter((item) => item.model === "unknown")
+    .map((item) => `Modelo do SKU nao identificado em "${item.name}". Use [PARCELADO], [DE_POR] ou [A_VISTA].`);
+
+  if (items.length === 0) {
+    warnings.push("Nenhuma camada SKU encontrada na selecao atual.");
+  }
+
+  return {
+    rootName: root.name,
+    items,
+    warnings
+  };
 }
 
 function detectAfeetSlices() {
@@ -373,7 +413,7 @@ function hideCorpoForegroundInClone(clone) {
     return /^TEXTO(?:\s+\d+)?$/.test(name) ||
       name === "VITRINE" ||
       name === "VITRINES" ||
-      /^SKU\s*\d+\b/.test(name);
+      isSkuLayerName(name);
   });
 
   for (const node of nodes) {
@@ -1158,16 +1198,92 @@ function scoreVtexApiImage(image, index) {
 }
 
 async function setProductTextFields(skuNode, product, settings, itemResult) {
+  const skuModel = detectSkuModel(skuNode.name);
   const title = product.title;
   const cta = product.cta;
   const discount = formatDiscount(product.discount);
 
+  itemResult.model = skuModel || "unknown";
   itemResult.fields.discount = await setNamedText(skuNode, FIELD_ALIASES.discount, discount || "");
   itemResult.fields.title = await setNamedText(skuNode, FIELD_ALIASES.title, title || "");
+
+  if (skuModel === "parcelado") {
+    await setParceladoTextFields(skuNode, product, itemResult);
+  } else if (skuModel === "de_por") {
+    await setDePorTextFields(skuNode, product, itemResult);
+  } else if (skuModel === "a_vista") {
+    await setAVistaTextFields(skuNode, product, itemResult);
+  } else {
+    addItemWarning(itemResult, `Modelo do SKU nao identificado em "${skuNode.name}". Use [PARCELADO], [DE_POR] ou [A_VISTA] no nome do frame/grupo.`);
+    itemResult.fields.cashPrice = await setNamedText(skuNode, FIELD_ALIASES.cashPrice, product.cashPrice || product.price || "");
+  }
+
+  itemResult.fields.cta = await setNamedText(skuNode, FIELD_ALIASES.cta, cta || "");
+
+  if (discount) {
+    warnMissingTextField(itemResult, "discount", "DESCONTO");
+  }
+  warnMissingTextField(itemResult, "title", "TITULO");
+  warnMissingTextField(itemResult, "cta", "CTA");
+}
+
+function detectSkuModel(nodeName) {
+  const name = normalizeLayerName(nodeName);
+  if (name.indexOf("[PARCELADO]") >= 0) {
+    return "parcelado";
+  }
+  if (name.indexOf("[DE_POR]") >= 0) {
+    return "de_por";
+  }
+  if (name.indexOf("[A_VISTA]") >= 0) {
+    return "a_vista";
+  }
+  return "";
+}
+
+async function setParceladoTextFields(skuNode, product, itemResult) {
   itemResult.fields.installmentCount = await setNamedText(skuNode, FIELD_ALIASES.installmentCount, product.installmentCount || "");
   itemResult.fields.installmentValue = await setNamedText(skuNode, FIELD_ALIASES.installmentValue, product.installmentValue || "");
   itemResult.fields.cashPrice = await setNamedText(skuNode, FIELD_ALIASES.cashPrice, product.cashPrice || product.price || "");
-  itemResult.fields.cta = await setNamedText(skuNode, FIELD_ALIASES.cta, cta || "");
+
+  warnMissingTextField(itemResult, "installmentCount", "NUMERO DE PARCELAS");
+  warnMissingTextField(itemResult, "installmentValue", "VALOR PARCELADO");
+  warnMissingTextField(itemResult, "cashPrice", "VALOR A VISTA");
+}
+
+async function setDePorTextFields(skuNode, product, itemResult) {
+  if (!product.oldPrice || !(product.cashPrice || product.price)) {
+    addItemWarning(itemResult, `SKU "${skuNode.name}" esta como [DE_POR], mas o briefing nao tem DE/POR valido.`);
+  }
+
+  itemResult.fields.oldPrice = await setNamedText(skuNode, FIELD_ALIASES.oldPrice, product.oldPrice || "");
+  itemResult.fields.newPrice = await setNamedText(skuNode, FIELD_ALIASES.newPrice, product.cashPrice || product.price || "");
+
+  warnMissingTextField(itemResult, "oldPrice", "VALOR ANTIGO");
+  warnMissingTextField(itemResult, "newPrice", "VALOR NOVO");
+}
+
+async function setAVistaTextFields(skuNode, product, itemResult) {
+  if (!(product.cashPrice || product.price)) {
+    addItemWarning(itemResult, `SKU "${skuNode.name}" esta como [A_VISTA], mas nenhum valor a vista foi encontrado no briefing.`);
+  }
+
+  itemResult.fields.cashPrice = await setNamedText(skuNode, FIELD_ALIASES.cashPrice, product.cashPrice || product.price || "");
+
+  warnMissingTextField(itemResult, "cashPrice", "VALOR A VISTA");
+}
+
+function warnMissingTextField(itemResult, fieldKey, label) {
+  if (itemResult.fields[fieldKey]) {
+    return;
+  }
+
+  addItemWarning(itemResult, `Campo obrigatorio nao encontrado no SKU: ${label}.`);
+}
+
+function addItemWarning(itemResult, message) {
+  itemResult.errors.push(message);
+  console.warn(`[Afeet - E-mail MKT Automator] ${message}`);
 }
 
 async function setProductImage(skuNode, product, itemResult) {
@@ -1371,12 +1487,16 @@ function compareSkuNodes(a, b) {
 }
 
 function isSkuNode(node) {
-  return /^SKU\s*\d+\b/i.test(normalizeLayerName(node.name));
+  return isSkuLayerName(node.name);
 }
 
 function skuNumber(name) {
-  const match = normalizeLayerName(name).match(/^SKU\s*(\d+)/i);
+  const match = normalizeLayerName(name).match(/^SKU(?:\s+\[[^\]]+\])?\s*(\d+)\b/i);
   return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
+}
+
+function isSkuLayerName(name) {
+  return /^SKU(?:\s+\[[^\]]+\])?\s*\d+\b/i.test(normalizeLayerName(name));
 }
 
 async function setNamedText(root, aliases, value) {
