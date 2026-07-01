@@ -1023,7 +1023,8 @@
             cta: "",
             imageUrl: "",
             imageStatus: "pending",
-            imageError: ""
+            imageError: "",
+            priceLines: []
           };
           continue;
         }
@@ -1044,6 +1045,7 @@
         }
 
         if (/(?:R\$\s*)?[\d.]+,\d{2}/i.test(line)) {
+          current.priceLines.push(line);
           applyPriceLine(current, line, global);
         }
       }
@@ -1062,9 +1064,20 @@
 
     function applyPriceLine(product, line, global) {
       const clean = line.replace(/\s+/g, " ").trim();
+      const dePorParceladoPrice = parseDePorParceladoPrice(clean);
       const dePorPrice = parseDePorPrice(clean);
       const parceladoPrice = parseParceladoPrice(clean);
       const aVistaPrice = parseAVistaPrice(clean);
+
+      if (dePorParceladoPrice.oldPrice || dePorParceladoPrice.cashPrice || dePorParceladoPrice.installmentCount || dePorParceladoPrice.installmentValue) {
+        product.oldPrice = dePorParceladoPrice.oldPrice;
+        product.cashPrice = dePorParceladoPrice.cashPrice;
+        product.price = product.cashPrice;
+        product.installmentCount = dePorParceladoPrice.installmentCount;
+        product.installmentValue = dePorParceladoPrice.installmentValue;
+        product.discount = dePorParceladoPrice.discount;
+        return;
+      }
 
       if (dePorPrice.oldPrice || dePorPrice.cashPrice) {
         product.oldPrice = dePorPrice.oldPrice;
@@ -1083,15 +1096,39 @@
       product.discount = parceladoPrice.discount || aVistaPrice.discount;
     }
 
+    function parseDePorParceladoPrice(text) {
+      const clean = String(text || "").replace(/\s+/g, " ").trim();
+      const currencyPattern = "(?:R\\$\\s*)*([\\d.]+,\\d{2})";
+      const match = clean.match(new RegExp(`\\bDE\\s*:?\\s*${currencyPattern}\\s+POR\\s*:?\\s*${currencyPattern}(?:.*?\\bou\\s*)?(\\d+)\\s*x\\s+de\\s+${currencyPattern}`, "i"));
+
+      if (!match) {
+        return {
+          oldPrice: "",
+          cashPrice: "",
+          installmentCount: "",
+          installmentValue: "",
+          discount: ""
+        };
+      }
+
+      return {
+        oldPrice: normalizeCurrencyAmount(match[1]),
+        cashPrice: normalizeCurrencyAmount(match[2]),
+        installmentCount: `${Number(match[3])}x`,
+        installmentValue: normalizeCurrencyAmount(match[4]),
+        discount: normalizeDiscountText(clean)
+      };
+    }
+
     function parseParceladoPrice(text) {
       const clean = String(text || "").replace(/\s+/g, " ").trim();
-      const priceMatches = [...clean.matchAll(/R\$\s*[\d.]+,\d{2}/gi)];
-      const installmentMatch = clean.match(/(\d+)\s*x\s+de\s+(R\$\s*[\d.]+,\d{2})/i);
+      const priceMatches = [...clean.matchAll(/(?:R\$\s*)+[\d.]+,\d{2}/gi)];
+      const installmentMatch = clean.match(/(\d+)\s*x\s+de\s+(?:R\$\s*)?([\d.]+,\d{2})/i);
 
       return {
         cashPrice: priceMatches[0] ? normalizeCurrencyText(priceMatches[0][0]) : "",
         installmentCount: installmentMatch ? `${Number(installmentMatch[1])}x` : "",
-        installmentValue: installmentMatch ? normalizeCurrencyText(installmentMatch[2]) : "",
+        installmentValue: installmentMatch ? normalizeCurrencyAmount(installmentMatch[2]) : "",
         discount: normalizeDiscountText(clean)
       };
     }
@@ -1102,7 +1139,9 @@
       const dePorMatch = clean.match(new RegExp(`\\bDE\\s*:?\\s*${currencyPattern}\\s+POR\\s*:?\\s*${currencyPattern}`, "i"));
 
       if (!dePorMatch) {
-        console.warn(`[Afeet - E-mail MKT Automator] Linha DE/POR nao reconhecida: ${clean}`);
+        if (/^\s*DE\b/i.test(clean) || /\bPOR\b/i.test(clean)) {
+          console.warn(`[Afeet - E-mail MKT Automator] Linha DE/POR nao reconhecida: ${clean}`);
+        }
         return {
           oldPrice: "",
           cashPrice: "",
@@ -1132,10 +1171,15 @@
         return;
       }
 
+      if (product.priceLines && product.priceLines.length > 1) {
+        applyPriceLine(product, product.priceLines.join(" "), global);
+      }
+
       if (!product.cta) {
         product.cta = global.defaultCta || "COMPRAR";
       }
 
+      delete product.priceLines;
       products.push(product);
     }
 
@@ -1161,7 +1205,7 @@
         { key: "index", label: "#" },
         { key: "title", label: "Título", field: "title" }
       ];
-      const priceLabel = state.skuModels.some((sku) => sku.model === "de_por")
+      const priceLabel = state.skuModels.some((sku) => sku.model === "de_por" || sku.model === "de_por_parcelado")
         ? "Valor à vista / valor novo"
         : "Valor à vista";
       const dynamicColumns = [
@@ -1313,6 +1357,18 @@
             warnings.push(`SKU [DE_POR] precisa de DE/POR valido no briefing.`);
           }
 
+          if (sku.model === "de_por_parcelado") {
+            if (!product.oldPrice) {
+              warnings.push(`SKU ${productNumber} está como [DE_POR_PARCELADO], mas o valor antigo não foi encontrado.`);
+            }
+            if (!(product.cashPrice || product.price)) {
+              warnings.push(`SKU ${productNumber} está como [DE_POR_PARCELADO], mas o valor atual não foi encontrado.`);
+            }
+            if (!product.installmentCount || !product.installmentValue) {
+              warnings.push(`SKU ${productNumber} está como [DE_POR_PARCELADO], mas o parcelamento não foi encontrado.`);
+            }
+          }
+
           if (sku.model === "parcelado" && !(product.cashPrice || product.price)) {
             warnings.push(`SKU [PARCELADO] sem valor principal identificado.`);
           }
@@ -1357,6 +1413,9 @@
       }, {});
       const parts = [];
 
+      if (counts.de_por_parcelado) {
+        parts.push(`${counts.de_por_parcelado} DE_POR_PARCELADO`);
+      }
       if (counts.de_por) {
         parts.push(`${counts.de_por} DE_POR`);
       }
@@ -1648,10 +1707,7 @@
 
     function normalizeDiscountText(value) {
       const text = String(value || "").replace(/¨/g, "").replace(/\s+/g, " ").trim();
-      const offMatch = text.match(/(\d{1,3})\s*%\s*OFF\b/i);
-      const trailingMatch = text.match(/[-–—]?\s*(\d{1,3})\s*%\s*$/i);
-      const spacedDashMatch = text.match(/[-–—]\s*(\d{1,3})\s*%/i);
-      const match = offMatch || trailingMatch || spacedDashMatch;
+      const match = text.match(/(?:^|[\s\-–—])(\d{1,3})\s*%\s*(?:OFF\b)?/i);
 
       return match ? `${Number(match[1])}%` : "";
     }

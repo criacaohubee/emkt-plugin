@@ -31,9 +31,10 @@ const FIELD_ALIASES = {
   image: ["IMAGEM"],
   installmentCount: ["NUMERO DE PARCELAS"],
   installmentValue: ["VALOR PARCELADO"],
-  cashPrice: ["VALOR A VISTA", "VALOR NOVO"],
+  cashPrice: ["VALOR ATUAL", "VALOR A VISTA", "VALOR NOVO"],
+  currentPrice: ["VALOR ATUAL", "VALOR A VISTA", "VALOR NOVO"],
   oldPrice: ["VALOR ANTIGO"],
-  newPrice: ["VALOR NOVO", "VALOR A VISTA"],
+  newPrice: ["VALOR NOVO", "VALOR ATUAL", "VALOR A VISTA"],
   cta: ["CTA"]
 };
 
@@ -138,7 +139,7 @@ function detectSelectedSkuModels() {
 
   const warnings = items
     .filter((item) => item.model === "unknown")
-    .map((item) => `Modelo do SKU nao identificado em "${item.name}". Use [PARCELADO], [DE_POR] ou [A_VISTA].`);
+    .map((item) => `Modelo do SKU nao identificado em "${item.name}". Use [DE_POR_PARCELADO], [DE_POR], [PARCELADO] ou [A_VISTA].`);
 
   if (items.length === 0) {
     warnings.push("Nenhuma camada SKU encontrada na selecao atual.");
@@ -1207,14 +1208,16 @@ async function setProductTextFields(skuNode, product, settings, itemResult) {
   itemResult.fields.discount = await setNamedText(skuNode, FIELD_ALIASES.discount, discount || "");
   itemResult.fields.title = await setNamedText(skuNode, FIELD_ALIASES.title, title || "");
 
-  if (skuModel === "parcelado") {
-    await setParceladoTextFields(skuNode, product, itemResult);
+  if (skuModel === "de_por_parcelado") {
+    await setDePorParceladoTextFields(skuNode, product, itemResult);
   } else if (skuModel === "de_por") {
     await setDePorTextFields(skuNode, product, itemResult);
+  } else if (skuModel === "parcelado") {
+    await setParceladoTextFields(skuNode, product, itemResult);
   } else if (skuModel === "a_vista") {
     await setAVistaTextFields(skuNode, product, itemResult);
   } else {
-    addItemWarning(itemResult, `Modelo do SKU nao identificado em "${skuNode.name}". Use [PARCELADO], [DE_POR] ou [A_VISTA] no nome do frame/grupo.`);
+    addItemWarning(itemResult, `Modelo do SKU nao identificado em "${skuNode.name}". Use [DE_POR_PARCELADO], [DE_POR], [PARCELADO] ou [A_VISTA] no nome do frame/grupo.`);
     itemResult.fields.cashPrice = await setNamedText(skuNode, FIELD_ALIASES.cashPrice, product.cashPrice || product.price || "");
   }
 
@@ -1229,11 +1232,14 @@ async function setProductTextFields(skuNode, product, settings, itemResult) {
 
 function detectSkuModel(nodeName) {
   const name = normalizeLayerName(nodeName);
-  if (name.indexOf("[PARCELADO]") >= 0) {
-    return "parcelado";
+  if (name.indexOf("[DE_POR_PARCELADO]") >= 0) {
+    return "de_por_parcelado";
   }
   if (name.indexOf("[DE_POR]") >= 0) {
     return "de_por";
+  }
+  if (name.indexOf("[PARCELADO]") >= 0) {
+    return "parcelado";
   }
   if (name.indexOf("[A_VISTA]") >= 0) {
     return "a_vista";
@@ -1261,6 +1267,28 @@ async function setDePorTextFields(skuNode, product, itemResult) {
 
   warnMissingTextField(itemResult, "oldPrice", "VALOR ANTIGO");
   warnMissingTextField(itemResult, "newPrice", "VALOR NOVO");
+}
+
+async function setDePorParceladoTextFields(skuNode, product, itemResult) {
+  if (!product.oldPrice) {
+    addItemWarning(itemResult, `SKU "${skuNode.name}" esta como [DE_POR_PARCELADO], mas o valor antigo nao foi encontrado.`);
+  }
+  if (!(product.cashPrice || product.price)) {
+    addItemWarning(itemResult, `SKU "${skuNode.name}" esta como [DE_POR_PARCELADO], mas o valor atual nao foi encontrado.`);
+  }
+  if (!product.installmentCount || !product.installmentValue) {
+    addItemWarning(itemResult, `SKU "${skuNode.name}" esta como [DE_POR_PARCELADO], mas o parcelamento nao foi encontrado.`);
+  }
+
+  itemResult.fields.oldPrice = await setNamedText(skuNode, FIELD_ALIASES.oldPrice, product.oldPrice || "");
+  itemResult.fields.currentPrice = await setNamedText(skuNode, FIELD_ALIASES.currentPrice, product.cashPrice || product.price || "");
+  itemResult.fields.installmentCount = await setNamedText(skuNode, FIELD_ALIASES.installmentCount, product.installmentCount || "");
+  itemResult.fields.installmentValue = await setNamedText(skuNode, FIELD_ALIASES.installmentValue, product.installmentValue || "");
+
+  warnMissingTextField(itemResult, "oldPrice", "VALOR ANTIGO");
+  warnMissingTextField(itemResult, "currentPrice", "VALOR ATUAL");
+  warnMissingTextField(itemResult, "installmentCount", "NUMERO DE PARCELAS");
+  warnMissingTextField(itemResult, "installmentValue", "VALOR PARCELADO");
 }
 
 async function setAVistaTextFields(skuNode, product, itemResult) {

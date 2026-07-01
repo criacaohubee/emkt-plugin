@@ -43,6 +43,7 @@ O plugin procura cards com nomes numerados:
 
 ```text
 SKU 1
+SKU [DE_POR_PARCELADO] 1
 SKU [PARCELADO] 1
 SKU [DE_POR] 1
 SKU [A_VISTA] 1
@@ -52,9 +53,9 @@ SKU 3
 SKU 20
 ```
 
-O produto 1 do briefing e aplicado no `SKU 1`, `SKU [PARCELADO] 1`, `SKU [DE_POR] 1` ou `SKU [A_VISTA] 1`, o produto 2 no SKU numerado como 2 e assim por diante. A ordem visual ainda e usada para desempate, mas o numero no nome da camada tem prioridade.
+O produto 1 do briefing e aplicado no `SKU 1`, `SKU [DE_POR_PARCELADO] 1`, `SKU [PARCELADO] 1`, `SKU [DE_POR] 1` ou `SKU [A_VISTA] 1`, o produto 2 no SKU numerado como 2 e assim por diante. A ordem visual ainda e usada para desempate, mas o numero no nome da camada tem prioridade.
 
-Quando o nome do SKU contem `[PARCELADO]`, o plugin usa o parser de preco parcelado atual. Quando contem `[DE_POR]`, ele espera uma linha no briefing com `DE: R$ ... POR R$ ...` e preenche preco antigo e preco novo. Quando contem `[A_VISTA]`, ele preenche apenas o valor a vista e desconto opcional. Se o SKU nao tiver nenhuma dessas tags, o plugin aplica os campos seguros e avisa que o modelo nao foi identificado.
+Quando o nome do SKU contem `[DE_POR_PARCELADO]`, o plugin usa o parser combinado de preco antigo, preco atual, parcelamento e desconto. Quando contem `[DE_POR]`, ele espera uma linha no briefing com `DE: R$ ... POR R$ ...` e preenche preco antigo e preco novo. Quando contem `[PARCELADO]`, o plugin usa o parser de preco parcelado atual. Quando contem `[A_VISTA]`, ele preenche apenas o valor a vista e desconto opcional. A deteccao prioriza `[DE_POR_PARCELADO]` antes de `[DE_POR]` e `[PARCELADO]`. Se o SKU nao tiver nenhuma dessas tags, o plugin aplica os campos seguros e avisa que o modelo nao foi identificado.
 
 Dentro de cada SKU, ele altera exclusivamente estas camadas por nome normalizado. Acentos e caixa nao importam.
 
@@ -65,6 +66,7 @@ TITULO ou TÍTULO
 IMAGEM
 NUMERO DE PARCELAS ou NÚMERO DE PARCELAS
 VALOR PARCELADO
+VALOR ATUAL
 VALOR A VISTA ou VALOR À VISTA
 VALOR ANTIGO
 VALOR NOVO
@@ -82,7 +84,17 @@ R$ 499,99 ou 5x de R$ 99,99 sem juros -17%
 CTA: NÃO PERCA
 ```
 
-O parser extrai o primeiro valor em reais como `VALOR À VISTA`, o trecho `5x` como `NÚMERO DE PARCELAS`, o valor depois de `de` como `VALOR PARCELADO` e o texto depois de `CTA:` como CTA. Descontos como `-50%`, `-50%¨`, `50% OFF` e `- 50%` sao normalizados para `-50% OFF`.
+O parser extrai o primeiro valor em reais como `VALOR À VISTA`, o trecho `5x` como `NÚMERO DE PARCELAS`, o valor depois de `de` como `VALOR PARCELADO` e o texto depois de `CTA:` como CTA. Descontos como `-50%`, `-50%¨`, `50% OFF` e `- 50%` sao normalizados para `50%`, sem hifen e sem `OFF`.
+
+Para `SKU [DE_POR_PARCELADO]`, o briefing pode usar variacoes como:
+
+```text
+DE: R$ 529,99 POR R$ R$ 259,99 ou 2x de R$ 129,99 sem juros -51%
+DE R$ 529,99 POR R$ 259,99 ou 2x de R$ 129,99 sem juros 51% OFF
+DE: 529,99 POR: 259,99 ou 2x de 129,99 sem juros -51%
+```
+
+Nesse modelo, os valores sao normalizados para `VALOR ANTIGO`, `VALOR ATUAL`, `NUMERO DE PARCELAS`, `VALOR PARCELADO` e `BADGE DE DESCONTO`.
 
 ## Busca de imagem
 
