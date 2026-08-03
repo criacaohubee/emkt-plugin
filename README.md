@@ -27,15 +27,18 @@ Durante a busca e a aplicacao, a barra de progresso mostra o total processado.
 
 ### Exportacao de fatias PNG
 
-1. Selecione o frame principal do e-mail final.
-2. Na area `Exportacao AFEET`, clique em `Detectar Fatias`.
-3. Revise o checklist e desmarque o que nao deve sair no ZIP.
+1. Selecione de um a tres frames principais de e-mail final.
+2. Na area `Exportacao AFEET`, clique em `Detectar Fatias dos E-mails Selecionados`.
+3. Revise o checklist de cada e-mail e desmarque o que nao deve sair no ZIP.
 4. Escolha a escala `1x`, `2x` ou `3x`.
 5. Clique em `Exportar Selecionadas`.
-6. Baixe o arquivo `Fatias.zip` quando o plugin concluir a exportacao.
+6. Defina o nome sugerido do ZIP e baixe o arquivo quando o plugin concluir a exportacao.
 
-O ZIP final usa a pasta `Fatias/` e nomes numerados, como `01_HEADER.png`, `02_HERO.png` e `03_CORPO_BG.png`.
-O `CORPO_BG` e uma fatia virtual criada por clone temporario da camada `CORPO`; o plugin oculta textos, vitrine e SKUs apenas nesse clone e remove o clone ao final.
+Para um e-mail, as fatias ficam diretamente na raiz do ZIP. Para dois ou tres e-mails, o ZIP cria uma pasta por frame selecionado, usando o nome do frame e nomes numerados como `01_HEADER.png`, `02_HERO.png` e `03_CORPO_BG.png`. Nenhuma pasta fixa `Fatias/` e incluida no ZIP.
+O `CORPO_BG` e uma fatia virtual criada por clone temporario da camada `CORPO`; o plugin preserva o tamanho final do frame, oculta os filhos diretos (incluindo grupos, instancias, `IMG`, textos, vitrine e SKUs) somente nesse clone e o remove ao final. Assim, a fatia contem somente o fundo visual do `CORPO`, sem alterar o arquivo original.
+
+As fatias recebem numeros pela posicao no layout do e-mail, de cima para baixo (e da esquerda para a direita em caso de empate), e nao pelo tipo de camada. Assim, uma composicao `TEXTO`, `IMG`, `TEXTO`, `IMG` dentro de `CORPO` sai nessa mesma sequencia, sempre com `CORPO_BG` antes do seu conteudo.
+Frames no corpo do e-mail chamados `IMG`, `IMG 1`, `IMG 2`, `IMG 03` etc. tambem entram como fatias exportaveis inteiras. Eles nao sao tratados como SKU nem passam pelo parser do briefing; o plugin exporta o frame completo para preservar fill, recorte, efeitos, overlays e filhos.
 
 ## Padrao esperado das camadas Afeef/Authentic Feet
 
@@ -122,4 +125,4 @@ Para acelerar a busca, o plugin resolve ate 8 produtos em paralelo, guarda cache
 - O plugin nao duplica cards ainda. Ele aplica produtos apenas nos SKUs ja existentes no template selecionado.
 - Imagens de tenis e produtos gerais sao aplicadas com `scaleMode: FILL`.
 - Produtos com titulo ou URL contendo blusao, blusa, jaqueta ou calca sao aplicados com `scaleMode: FIT` e um fill branco `#FFFFFF` por baixo.
-- A exportacao de fatias nao salva arquivos automaticamente no Desktop. Ela gera `Fatias.zip` para download manual.
+- A exportacao de fatias nao salva arquivos automaticamente no Desktop. Ela gera um ZIP para download manual, com o nome definido no painel antes da exportacao.
