@@ -1367,13 +1367,16 @@
       const installmentMatch = clean.match(/(\d+)\s*x\s*de\s*(?:R\$\s*)?([\d.]+,\d{2})/i);
       // In the current installment format the two monetary values have
       // different meanings: the amount after "de" is each installment and
-      // the amount after "OU" is the cash price. Keep the old first-price
-      // fallback for legacy lines that put the cash price before installments.
+      // the cash price normally comes after "OU". Some briefs omit that
+      // connector, but still identify the cash value with "no pix" or
+      // "à vista"; recognize that value before using the legacy fallback.
       const cashPriceAfterOr = clean.match(/ou(?=\s*(?:R\$\s*)*[\d])\s*(?:R\$\s*)*([\d.]+,\d{2})/i);
+      const cashPriceWithCashCue = clean.match(/(?:R\$\s*)*([\d.]+,\d{2})\s+(?:(?:no\s+)?pix|(?:a|à)\s+vista)\b/i);
+      const cashPriceMatch = cashPriceAfterOr || cashPriceWithCashCue;
 
       return {
-        cashPrice: cashPriceAfterOr
-          ? normalizeCurrencyAmount(cashPriceAfterOr[1])
+        cashPrice: cashPriceMatch
+          ? normalizeCurrencyAmount(cashPriceMatch[1])
           : (priceMatches[0] ? normalizeCurrencyText(priceMatches[0][0]) : ""),
         installmentCount: installmentMatch ? `${Number(installmentMatch[1])}x` : "",
         installmentValue: installmentMatch ? normalizeCurrencyAmount(installmentMatch[2]) : "",

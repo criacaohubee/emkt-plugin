@@ -116,6 +116,16 @@ test("parses Pix installment prices without a discount", () => {
   assert.equal(product.discount, "");
 });
 
+test("parses the Pix price when a briefing omits OU after installments", () => {
+  const product = parseSingleProduct("10x de R$ 99,99 sem juros R$ 949,99 no pix à vista 5% OFF");
+
+  assert.equal(product.installmentCount, "10x");
+  assert.equal(product.installmentValue, "R$ 99,99");
+  assert.equal(product.cashPrice, "R$ 949,99");
+  assert.equal(product.price, "R$ 949,99");
+  assert.equal(product.discount, "5%");
+});
+
 test("supports case and spacing variations around OU, PIX and OFF", () => {
   const product = parseSingleProduct("10xdeR$179,99 sem jurosouR$1.709,99 no PIX a vista 5% off");
 
