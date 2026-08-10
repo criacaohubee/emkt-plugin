@@ -65,7 +65,7 @@ figma.ui.onmessage = async (message) => {
     if (message.type === "detect-slices") {
       const result = detectAfeetSlices();
       figma.ui.postMessage({ type: "slice-detect-complete", result });
-      figma.notify(`${result.items.length} fatia(s) detectada(s).`);
+      figma.notify(`${result.totalItems} fatia(s) detectada(s) em ${result.emails.length} e-mail(s).`);
       return;
     }
 
@@ -95,14 +95,16 @@ figma.ui.onmessage = async (message) => {
 
 function postSelectionSummary() {
   try {
-    const selection = figma.currentPage.selection;
-    const selected = selection[0];
-    const skuCount = selected ? safeFindSkuNodes(selected).length : 0;
+    const selected = getSelectedEmailRoots();
+    const skuCount = selected.reduce((total, node) => total + safeFindSkuNodes(node).length, 0);
+    const summary = selected.length === 0
+      ? "Nenhum frame selecionado"
+      : selected.length === 1
+        ? `${selected[0].name} (${selected[0].type}) - ${skuCount} SKU(s) encontrado(s)`
+        : `${selected.length} frames selecionados para exportacao - ${selected.map((node) => node.name).join(", ")}`;
     figma.ui.postMessage({
       type: "selection-summary",
-      summary: selected
-        ? `${selected.name} (${selected.type}) - ${skuCount} SKU(s) encontrado(s)`
-        : "Nenhum frame selecionado"
+      summary
     });
   } catch (error) {
     figma.ui.postMessage({
@@ -153,11 +155,41 @@ function detectSelectedSkuModels() {
 }
 
 function detectAfeetSlices() {
-  const root = figma.currentPage.selection[0];
-  if (!root) {
-    throw new Error("Selecione o frame principal do e-mail antes de detectar as fatias.");
+  const selectedRoots = getSelectedEmailRoots();
+  if (selectedRoots.length === 0) {
+    throw new Error("Selecione de um a tres frames principais de e-mail antes de detectar as fatias.");
   }
 
+  if (selectedRoots.length > 3) {
+    throw new Error("Selecione no maximo tres frames principais de e-mail por exportacao.");
+  }
+
+  const emails = selectedRoots.map(detectAfeetSlicesForRoot);
+
+  return {
+    emails,
+    totalItems: emails.reduce((total, email) => total + email.items.length, 0)
+  };
+}
+
+function getSelectedEmailRoots() {
+  const selected = figma.currentPage.selection.filter(isExportableNode);
+  return selected.filter((node) => !selected.some((candidate) => candidate !== node && isDescendantOf(node, candidate)));
+}
+
+function isDescendantOf(node, ancestor) {
+  let parent = node && node.parent;
+  while (parent) {
+    if (parent === ancestor) {
+      return true;
+    }
+    parent = parent.parent;
+  }
+
+  return false;
+}
+
+function detectAfeetSlicesForRoot(root) {
   const items = [];
   const seenNodeIds = {};
   const header = findFirstExportNodeByName(root, ["HEADER"]);
@@ -171,12 +203,18 @@ function detectAfeetSlices() {
   addDetectedSlice(items, seenNodeIds, hero, "HERO", "node");
 
   if (corpo) {
+    const corpoBounds = getNodeBounds(corpo);
     items.push({
       id: `virtual-corpo-bg-${corpo.id}`,
       nodeId: corpo.id,
       label: "CORPO_BG",
       kind: "corpo-bg",
-      selected: true
+      selected: true,
+      x: corpoBounds.x,
+      y: corpoBounds.y,
+      // The background must precede the content that sits inside CORPO when
+      // both have the same starting position.
+      order: -1
     });
 
     const textNodes = findTextoNodes(corpo);
@@ -188,7 +226,18 @@ function detectAfeetSlices() {
     for (const skuNode of skuNodes) {
       addDetectedSlice(items, seenNodeIds, skuNode, skuNode.name, "node");
     }
+
   }
+
+  const imgNodes = findImgSliceNodes(root);
+  for (const imgNode of imgNodes) {
+    addDetectedSlice(items, seenNodeIds, imgNode, imgNode.name, "node");
+  }
+
+  const imgSliceNames = items
+    .filter((item) => item.kind === "node" && isImgSliceName(item.label))
+    .map((item) => item.label);
+  console.log("[slice-export] IMG frames found:", imgSliceNames.length, imgSliceNames);
 
   addDetectedSlice(items, seenNodeIds, bannerApp, "BANNER APP", "node");
   addDetectedSlice(items, seenNodeIds, footerIcons, "FOOTER - ICONS", "node");
@@ -198,9 +247,15 @@ function detectAfeetSlices() {
     addDetectedSlice(items, seenNodeIds, socialNode, socialNode.name, "node");
   }
 
+  // Do not group the ZIP by slice family. The slice list (and therefore its
+  // numbered filenames) must follow the top-to-bottom e-mail composition.
+  items.sort(compareDetectedSliceOrder);
+
   return {
+    rootId: root.id,
     rootName: root.name,
-    items
+    items,
+    imgSlices: imgSliceNames
   };
 }
 
@@ -210,13 +265,39 @@ function addDetectedSlice(items, seenNodeIds, node, label, kind) {
   }
 
   seenNodeIds[node.id] = true;
+  const bounds = getNodeBounds(node);
   items.push({
     id: node.id,
     nodeId: node.id,
     label: label || node.name,
     kind,
-    selected: true
+    selected: true,
+    x: bounds.x,
+    y: bounds.y,
+    order: 0
   });
+}
+
+function compareDetectedSliceOrder(a, b) {
+  const aY = typeof a.y === "number" ? a.y : 0;
+  const bY = typeof b.y === "number" ? b.y : 0;
+  if (aY !== bY) {
+    return aY - bY;
+  }
+
+  const aX = typeof a.x === "number" ? a.x : 0;
+  const bX = typeof b.x === "number" ? b.x : 0;
+  if (aX !== bX) {
+    return aX - bX;
+  }
+
+  const aOrder = typeof a.order === "number" ? a.order : 0;
+  const bOrder = typeof b.order === "number" ? b.order : 0;
+  if (aOrder !== bOrder) {
+    return aOrder - bOrder;
+  }
+
+  return String(a.label || "").localeCompare(String(b.label || ""));
 }
 
 function findFirstExportNodeByName(root, names) {
@@ -289,6 +370,68 @@ function findExportSkuNodes(root) {
   return unique;
 }
 
+function findImgSliceNodes(root) {
+  const nodes = [];
+
+  if (isImgSliceNode(root) && isExportableNode(root)) {
+    nodes.push(root);
+  }
+
+  if (typeof root.findAll === "function") {
+    appendItems(nodes, root.findAll((node) => isExportableNode(node) && isImgSliceNode(node)));
+  }
+
+  const unique = uniqueNodes(nodes);
+  unique.sort(compareImgSliceNodes);
+  return unique;
+}
+
+function compareImgSliceNodes(a, b) {
+  const aNumber = imgSliceNumber(a.name);
+  const bNumber = imgSliceNumber(b.name);
+
+  if (aNumber !== bNumber) {
+    return aNumber - bNumber;
+  }
+
+  return compareTopLeft(a, b);
+}
+
+function imgSliceNumber(name) {
+  const normalized = normalizeLayerName(name);
+  if (normalized === "IMG") {
+    return 0;
+  }
+
+  const match = normalized.match(/^IMG\s+(\d+)$/);
+  return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
+}
+
+function isImgSliceNode(node) {
+  return Boolean(
+    node &&
+    node.type === "FRAME" &&
+    isImgSliceName(node.name) &&
+    !isInsideSkuNode(node)
+  );
+}
+
+function isImgSliceName(name) {
+  return /^IMG(?:\s+\d+)?$/.test(normalizeLayerName(name));
+}
+
+function isInsideSkuNode(node) {
+  let parent = node && node.parent;
+  while (parent) {
+    if (isSkuNode(parent)) {
+      return true;
+    }
+    parent = parent.parent;
+  }
+
+  return false;
+}
+
 function findFooterSocialNodes(footerRedes) {
   if (!footerRedes || !("children" in footerRedes)) {
     return [];
@@ -311,9 +454,14 @@ async function exportAfeetSlices(items, scale) {
   const files = [];
   const failures = [];
 
+  const exportedCountByEmail = {};
+
   for (let index = 0; index < selectedItems.length; index += 1) {
     const item = selectedItems[index];
-    const fileName = `${padNumber(index + 1)}_${sliceFileStem(item.label)}.png`;
+    const emailKey = item.emailId || "single-email";
+    const emailIndex = (exportedCountByEmail[emailKey] || 0) + 1;
+    exportedCountByEmail[emailKey] = emailIndex;
+    const fileName = `${padNumber(emailIndex)}_${sliceFileStem(item.label)}.png`;
 
     try {
       const bytes = item.kind === "corpo-bg"
@@ -323,11 +471,14 @@ async function exportAfeetSlices(items, scale) {
       files.push({
         name: fileName,
         label: item.label,
+        emailId: item.emailId || "",
+        emailName: item.emailName || "",
         bytes
       });
     } catch (error) {
       failures.push({
         label: item.label || fileName,
+        emailName: item.emailName || "",
         reason: readError(error)
       });
     }
@@ -368,10 +519,11 @@ async function exportCorpoBackgroundSlice(nodeId, scale) {
   }
 
   const originalBounds = getNodeBounds(corpo);
-  const clone = corpo.clone();
+  let clone = null;
 
   try {
-    detachTemporaryClone(clone, originalBounds);
+    clone = corpo.clone();
+    await detachTemporaryClone(clone, originalBounds);
     lockNodeSize(clone, originalBounds.width, originalBounds.height);
     hideCorpoForegroundInClone(clone);
     return await clone.exportAsync({
@@ -382,44 +534,50 @@ async function exportCorpoBackgroundSlice(nodeId, scale) {
       }
     });
   } finally {
-    try {
-      clone.remove();
-    } catch (_error) {
-      // Temporary clone cleanup should not hide the original export error.
+    if (clone) {
+      try {
+        clone.remove();
+      } catch (_error) {
+        // Temporary clone cleanup should not hide the original export error.
+      }
     }
   }
 }
 
-function detachTemporaryClone(clone, originalBounds) {
-  try {
-    figma.currentPage.appendChild(clone);
-    if ("x" in clone) {
-      clone.x = originalBounds.x;
-    }
-    if ("y" in clone) {
-      clone.y = originalBounds.y;
-    }
-  } catch (_error) {
-    // If the node type cannot be reparented, still export and remove the temporary clone.
+async function detachTemporaryClone(clone, originalBounds) {
+  const page = figma.currentPage;
+  if (page && typeof page.loadAsync === "function") {
+    await page.loadAsync();
+  }
+
+  if (page && typeof page.appendChild === "function" && clone.parent !== page) {
+    page.appendChild(clone);
+  }
+
+  if ("x" in clone) {
+    clone.x = originalBounds.x;
+  }
+  if ("y" in clone) {
+    clone.y = originalBounds.y;
   }
 }
 
 function hideCorpoForegroundInClone(clone) {
-  if (typeof clone.findAll !== "function") {
+  if (!clone || !("children" in clone)) {
     return;
   }
 
-  const nodes = clone.findAll((node) => {
-    const name = normalizeLayerName(node.name);
-    return /^TEXTO(?:\s+\d+)?$/.test(name) ||
-      name === "VITRINE" ||
-      name === "VITRINES" ||
-      isSkuLayerName(name);
-  });
-
-  for (const node of nodes) {
+  // Hiding direct children is enough to remove all foreground content, while
+  // avoiding inaccessible instance sublayers returned by findAll().
+  for (const node of clone.children) {
     if ("visible" in node) {
-      node.visible = false;
+      try {
+        if (node.visible !== false) {
+          node.visible = false;
+        }
+      } catch (_error) {
+        // The clone must never mutate the source CORPO if a child is locked.
+      }
     }
   }
 }
@@ -887,6 +1045,8 @@ async function applyProducts(products, settings) {
       errors: []
     };
 
+    // Preserve the normal assembly flow: products whose image was not resolved
+    // during briefing analysis must still be completed when they are applied.
     if (!product.imageUrl && product.url) {
       try {
         product.imageUrl = await resolveProductImageUrl(product, settings.proxyTemplate || "");

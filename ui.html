@@ -20,15 +20,21 @@
     }
 
     body {
+      box-sizing: border-box;
+      height: 100vh;
       margin: 0;
+      overflow-y: auto;
       background: var(--bg);
       color: var(--text);
       min-width: 760px;
     }
 
     main {
+      align-content: start;
       display: grid;
       gap: 14px;
+      min-height: 100%;
+      box-sizing: border-box;
       padding: 20px;
       padding-bottom: 28px;
     }
@@ -162,7 +168,7 @@
 
     .sku-stage {
       display: grid;
-      gap: 14px;
+      gap: 10px;
     }
 
     .sku-stage.hidden,
@@ -189,9 +195,9 @@
       border: 1px solid var(--border);
       border-radius: 12px;
       display: grid;
-      gap: 12px;
-      min-height: 210px;
-      padding: 18px;
+      gap: 10px;
+      min-height: 160px;
+      padding: 14px;
     }
 
     .size-controls {
@@ -261,15 +267,14 @@
     }
 
     .slice-list {
-      border: 1px solid var(--border);
-      border-radius: 10px;
       display: grid;
-      max-height: 230px;
-      min-height: 44px;
-      overflow: auto;
+      gap: 12px;
+      min-height: 0;
     }
 
     .slice-list.empty {
+      border: 1px solid var(--border);
+      border-radius: 10px;
       align-items: center;
       color: var(--text-muted);
       padding: 12px;
@@ -294,6 +299,77 @@
 
     .slice-row span {
       font-weight: 600;
+    }
+
+    .email-slice-group + .email-slice-group {
+      margin-top: 0;
+    }
+
+    .email-slice-group {
+      border: 1px solid var(--border-strong);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .email-slice-heading {
+      align-items: center;
+      background: var(--panel-muted);
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+      padding: 9px 10px;
+    }
+
+    .email-slice-heading-main {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .email-slice-title {
+      font-weight: 720;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .email-slice-count {
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .email-slice-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      justify-content: flex-end;
+    }
+
+    button.email-slice-action {
+      background: #ffffff;
+      border-color: var(--border-strong);
+      color: var(--text-muted);
+      min-height: 26px;
+      padding: 4px 7px;
+    }
+
+    button.email-slice-action:hover:not(:disabled) {
+      background: #ffffff;
+      border-color: var(--accent);
+      color: var(--accent-strong);
+    }
+
+    .archive-name-field {
+      align-items: center;
+      display: flex;
+      flex: 1 1 240px;
+      font-weight: 600;
+      gap: 8px;
+    }
+
+    .archive-name-field input {
+      flex: 1;
     }
 
     .scale-options {
@@ -359,6 +435,27 @@
       max-height: calc(100vh - 390px);
       min-height: 260px;
       overflow: auto;
+    }
+
+    #skuScreen {
+      gap: 10px;
+    }
+
+    #skuScreen label {
+      gap: 6px;
+    }
+
+    #skuScreen textarea {
+      min-height: 128px;
+    }
+
+    #skuScreen .actions {
+      gap: 7px;
+    }
+
+    #skuScreen button:not(.tab-button) {
+      min-height: 30px;
+      padding: 7px 11px;
     }
 
     table {
@@ -517,6 +614,7 @@
         </div>
 
         <div id="reviewStatus" class="status hidden"></div>
+        <div id="productImageHint" class="muted">Nenhum link de produto detectado no briefing.</div>
         <div id="reviewProgress" class="progress hidden" aria-label="Progresso de aplicação">
           <div class="progress-meta">
             <span id="reviewProgressLabel">Aguardando</span>
@@ -542,14 +640,14 @@
       <div class="export-panel" aria-label="Exportação AFEET">
         <div class="section-title">
           <h2>Exportação AFEET</h2>
-          <a id="downloadSlices" class="download-link" download="Fatias.zip">Baixar Fatias.zip</a>
+          <a id="downloadSlices" class="download-link">Baixar ZIP</a>
         </div>
         <div class="actions">
-          <button id="detectSlices" class="secondary">Detectar Fatias</button>
+          <button id="detectSlices" class="secondary">Detectar Fatias dos E-mails Selecionados</button>
           <button id="selectAllSlices" class="secondary" disabled>Selecionar Tudo</button>
           <button id="clearSlices" class="secondary" disabled>Limpar Seleção</button>
         </div>
-        <div id="exportStatus" class="status">Selecione o frame principal do e-mail e detecte as fatias.</div>
+        <div id="exportStatus" class="status">Selecione de um a três frames principais de e-mail. Cada frame detectado abre uma sessão de revisão abaixo.</div>
         <div id="sliceList" class="slice-list empty">Nenhuma fatia detectada.</div>
         <div class="scale-options" aria-label="Escala de exportação">
           <span class="muted">Escala:</span>
@@ -558,6 +656,9 @@
           <label><input type="radio" name="sliceScale" value="3"> 3x</label>
         </div>
         <div class="actions">
+          <label class="archive-name-field">Nome do ZIP
+            <input id="archiveName" type="text" value="exportacao-emails" autocomplete="off" spellcheck="false" aria-label="Nome do arquivo ZIP">
+          </label>
           <button id="exportSlices" class="primary" disabled>Exportar Selecionadas</button>
         </div>
       </div>
@@ -585,7 +686,7 @@
       skuWarnings: [],
       resolving: false,
       applying: false,
-      slices: [],
+      emails: [],
       detectingSlices: false,
       exportingSlices: false,
       lastDownloadUrl: "",
@@ -614,7 +715,9 @@
       clearSlices: document.getElementById("clearSlices"),
       exportSlices: document.getElementById("exportSlices"),
       sliceList: document.getElementById("sliceList"),
+      archiveName: document.getElementById("archiveName"),
       downloadSlices: document.getElementById("downloadSlices"),
+      productImageHint: document.getElementById("productImageHint"),
       exportStatus: document.getElementById("exportStatus"),
       status: document.getElementById("status"),
       loadingStatus: document.getElementById("loadingStatus"),
@@ -644,6 +747,7 @@
     el.clearSlices.addEventListener("click", () => setAllSlicesSelected(false));
     el.exportSlices.addEventListener("click", exportSelectedSlices);
     el.sliceList.addEventListener("change", handleSliceToggle);
+    el.sliceList.addEventListener("click", handleEmailSliceAction);
     el.products.addEventListener("input", handleTableInput);
     document.querySelector(".size-controls").addEventListener("click", handleSizeClick);
     el.resizeHandle.addEventListener("mousedown", startResize);
@@ -676,13 +780,15 @@
 
       if (message.type === "slice-detect-complete") {
         state.detectingSlices = false;
-        state.slices = (message.result && message.result.items) || [];
+        state.emails = (message.result && message.result.emails) || [];
         renderSlices();
         updateButtons();
         clearDownloadLink();
-        setExportStatus(state.slices.length
-          ? `${state.slices.length} fatia(s) detectada(s) em ${message.result.rootName}.`
-          : "Nenhuma fatia exportavel encontrada na seleção.");
+        const total = state.emails.reduce((count, email) => count + email.items.length, 0);
+        setArchiveNameFromEmails();
+        setExportStatus(total
+          ? `${state.emails.length} sessão(ões) de e-mail pronta(s): ${state.emails.map((email) => email.rootName).join(", ")}. ${total} fatia(s) no total.`
+          : "Nenhuma fatia exportavel encontrada nos frames selecionados.");
       }
 
       if (message.type === "slice-export-progress") {
@@ -857,7 +963,7 @@
       }
 
       state.detectingSlices = true;
-      state.slices = [];
+      state.emails = [];
       renderSlices();
       updateButtons();
       clearDownloadLink();
@@ -870,7 +976,7 @@
     }
 
     function exportSelectedSlices() {
-      const selectedItems = state.slices.filter((item) => item.selected);
+      const selectedItems = selectedSliceItems();
       if (selectedItems.length === 0 || state.exportingSlices) {
         return;
       }
@@ -933,35 +1039,69 @@
         return;
       }
 
-      const index = Number(input.dataset.sliceIndex);
-      if (Number.isInteger(index) && state.slices[index]) {
-        state.slices[index].selected = input.checked;
+      const emailIndex = Number(input.dataset.emailIndex);
+      const sliceIndex = Number(input.dataset.sliceIndex);
+      const email = state.emails[emailIndex];
+      if (Number.isInteger(emailIndex) && Number.isInteger(sliceIndex) && email && email.items[sliceIndex]) {
+        email.items[sliceIndex].selected = input.checked;
         updateButtons();
       }
     }
 
     function setAllSlicesSelected(selected) {
-      state.slices = state.slices.map((item) => ({
-        ...item,
-        selected
+      state.emails = state.emails.map((email) => ({
+        ...email,
+        items: email.items.map((item) => ({ ...item, selected }))
       }));
       renderSlices();
       updateButtons();
     }
 
+    function handleEmailSliceAction(event) {
+      const button = event.target.closest("button[data-email-action]");
+      if (!button) {
+        return;
+      }
+
+      const emailIndex = Number(button.dataset.emailIndex);
+      const email = state.emails[emailIndex];
+      if (!Number.isInteger(emailIndex) || !email) {
+        return;
+      }
+
+      const selected = button.dataset.emailAction === "select";
+      email.items = email.items.map((item) => ({ ...item, selected }));
+      renderSlices();
+      updateButtons();
+    }
+
     function renderSlices() {
-      if (state.slices.length === 0) {
+      if (state.emails.length === 0) {
         el.sliceList.classList.add("empty");
         el.sliceList.textContent = state.detectingSlices ? "Detectando fatias..." : "Nenhuma fatia detectada.";
         return;
       }
 
       el.sliceList.classList.remove("empty");
-      el.sliceList.innerHTML = state.slices.map((item, index) => `
-        <label class="slice-row">
-          <input type="checkbox" data-slice-index="${index}" ${item.selected ? "checked" : ""}>
-          <span>${escapeHtml(item.label)}</span>
-        </label>
+      el.sliceList.innerHTML = state.emails.map((email, emailIndex) => `
+        <section class="email-slice-group" aria-label="Sessão de revisão: ${escapeHtml(email.rootName)}">
+          <div class="email-slice-heading">
+            <div class="email-slice-heading-main">
+              <span class="email-slice-title">E-mail ${emailIndex + 1}: ${escapeHtml(email.rootName)}</span>
+              <span class="email-slice-count">Sessão independente · ${email.items.length} fatia(s)</span>
+            </div>
+            <div class="email-slice-actions" aria-label="Ações da sessão ${emailIndex + 1}">
+              <button class="email-slice-action" type="button" data-email-index="${emailIndex}" data-email-action="select">Todas</button>
+              <button class="email-slice-action" type="button" data-email-index="${emailIndex}" data-email-action="clear">Nenhuma</button>
+            </div>
+          </div>
+          ${email.items.map((item, itemIndex) => `
+            <label class="slice-row">
+              <input type="checkbox" data-email-index="${emailIndex}" data-slice-index="${itemIndex}" ${item.selected ? "checked" : ""}>
+              <span>${escapeHtml(item.label)}</span>
+            </label>
+          `).join("")}
+        </section>
       `).join("");
     }
 
@@ -970,22 +1110,22 @@
       const failures = result.failures || [];
 
       if (files.length > 0) {
-        const zipBytes = createZip(files.map((file) => ({
-          name: `Fatias/${file.name}`,
-          bytes: toUint8Array(file.bytes)
-        })));
+        const multipleEmails = new Set(files.map((file) => file.emailId || file.emailName)).size > 1;
+        const zipBytes = createZip(buildZipEntries(files, multipleEmails));
         const blob = new Blob([zipBytes], { type: "application/zip" });
         const url = URL.createObjectURL(blob);
 
         clearDownloadLink();
         state.lastDownloadUrl = url;
         el.downloadSlices.href = url;
+        el.downloadSlices.download = `${archiveFileStem(el.archiveName.value)}.zip`;
+        el.downloadSlices.textContent = `Baixar ${el.downloadSlices.download}`;
         el.downloadSlices.classList.add("visible");
         el.downloadSlices.click();
       }
 
       const failureText = failures.length
-        ? ` ${failures.length} falha(s): ${failures.map((failure) => `${failure.label}: ${failure.reason}`).join(" | ")}`
+        ? ` ${failures.length} falha(s): ${failures.map((failure) => `${failure.emailName ? `${failure.emailName} — ` : ""}${failure.label}: ${failure.reason}`).join(" | ")}`
         : "";
       setExportStatus(`Exportacao concluida. ${files.length} arquivo(s) exportado(s).${failureText}`);
     }
@@ -994,6 +1134,61 @@
       const checked = document.querySelector('input[name="sliceScale"]:checked');
       const value = Number(checked && checked.value);
       return value === 1 || value === 2 || value === 3 ? value : 2;
+    }
+
+    function selectedSliceItems() {
+      return state.emails.flatMap((email) => email.items
+        .filter((item) => item.selected)
+        .map((item) => ({
+          ...item,
+          emailId: email.rootId,
+          emailName: email.rootName
+        })));
+    }
+
+    function setArchiveNameFromEmails() {
+      if (state.emails.length === 1) {
+        el.archiveName.value = archiveFileStem(state.emails[0].rootName);
+        return;
+      }
+
+      if (state.emails.length > 1) {
+        el.archiveName.value = "exportacao-emails";
+      }
+    }
+
+    function archiveFileStem(value) {
+      const safeName = String(value || "")
+        .trim()
+        .replace(/\.zip$/i, "")
+        .replace(/[\\/:*?\"<>|]+/g, "-")
+        .replace(/\s+/g, " ")
+        .replace(/^\.+|\.+$/g, "");
+      return safeName || "exportacao-emails";
+    }
+
+    function zipPathSegment(value) {
+      return archiveFileStem(value).replace(/\s+/g, " ");
+    }
+
+    function buildZipEntries(files, multipleEmails) {
+      const folderByEmailId = {};
+      const usedFolders = {};
+
+      return files.map((file) => {
+        const emailKey = file.emailId || file.emailName || "email";
+        if (!folderByEmailId[emailKey]) {
+          const baseName = zipPathSegment(file.emailName);
+          const occurrence = (usedFolders[baseName] || 0) + 1;
+          usedFolders[baseName] = occurrence;
+          folderByEmailId[emailKey] = occurrence === 1 ? baseName : `${baseName} (${occurrence})`;
+        }
+
+        return {
+          name: multipleEmails ? `${folderByEmailId[emailKey]}/${file.name}` : file.name,
+          bytes: toUint8Array(file.bytes)
+        };
+      });
     }
 
     function parseBriefing(rawText) {
@@ -1013,6 +1208,7 @@
           current = {
             index: Number(startMatch[1]),
             title: startMatch[2].trim(),
+            sku: extractBriefingSku(startMatch[2]),
             url: "",
             price: "",
             oldPrice: "",
@@ -1033,8 +1229,15 @@
           continue;
         }
 
-        if (/^https?:\/\//i.test(line)) {
-          current.url = line;
+        const url = extractUrlFromText(line);
+        if (url) {
+          current.url = url;
+          continue;
+        }
+
+        const skuMatch = line.match(/^SKU\s*:\s*(.+)$/i);
+        if (skuMatch) {
+          current.sku = skuMatch[1].trim();
           continue;
         }
 
@@ -1054,12 +1257,50 @@
       return { global, products };
     }
 
+    function extractUrlFromText(value) {
+      const text = decodeBriefingUrlEntities(String(value || "")).trim();
+      const markdownMatch = text.match(/\[[^\]]*\]\s*\(\s*(https?:\/\/[^)\s]+)\s*\)/i);
+      const rawMatch = text.match(/https?:\/\/[^\s<>()\[\]]+/i);
+      const candidate = markdownMatch ? markdownMatch[1] : (rawMatch ? rawMatch[0] : "");
+      if (!candidate) {
+        return "";
+      }
+
+      const cleaned = decodeBriefingUrlEntities(candidate)
+        .trim()
+        .replace(/^[<([{]+/, "")
+        .replace(/[>\])},;.!]+$/, "");
+
+      try {
+        const url = new URL(cleaned);
+        if (url.protocol !== "http:" && url.protocol !== "https:") {
+          return "";
+        }
+        url.hash = "";
+        return url.toString();
+      } catch (_error) {
+        return "";
+      }
+    }
+
+    function decodeBriefingUrlEntities(value) {
+      return String(value || "")
+        .replace(/&amp;/gi, "&")
+        .replace(/&#(\d+);?/g, (_match, code) => String.fromCharCode(Number(code)))
+        .replace(/&#x([0-9a-f]+);?/gi, (_match, code) => String.fromCharCode(parseInt(code, 16)));
+    }
+
     function parseGlobalFields(text) {
       const ctaMatches = [...String(text || "").matchAll(/^CTA:\s*(.+)$/gmi)];
 
       return {
         defaultCta: ctaMatches.length ? ctaMatches[ctaMatches.length - 1][1].trim() : ""
       };
+    }
+
+    function extractBriefingSku(value) {
+      const match = String(value || "").match(/\b[A-Z0-9]+-[A-Z0-9]+-[A-Z0-9]+\b/i);
+      return match ? match[0] : "";
     }
 
     function applyPriceLine(product, line, global) {
@@ -1123,10 +1364,20 @@
     function parseParceladoPrice(text) {
       const clean = String(text || "").replace(/\s+/g, " ").trim();
       const priceMatches = [...clean.matchAll(/(?:R\$\s*)+[\d.]+,\d{2}/gi)];
-      const installmentMatch = clean.match(/(\d+)\s*x\s+de\s+(?:R\$\s*)?([\d.]+,\d{2})/i);
+      const installmentMatch = clean.match(/(\d+)\s*x\s*de\s*(?:R\$\s*)?([\d.]+,\d{2})/i);
+      // In the current installment format the two monetary values have
+      // different meanings: the amount after "de" is each installment and
+      // the cash price normally comes after "OU". Some briefs omit that
+      // connector, but still identify the cash value with "no pix" or
+      // "à vista"; recognize that value before using the legacy fallback.
+      const cashPriceAfterOr = clean.match(/ou(?=\s*(?:R\$\s*)*[\d])\s*(?:R\$\s*)*([\d.]+,\d{2})/i);
+      const cashPriceWithCashCue = clean.match(/(?:R\$\s*)*([\d.]+,\d{2})\s+(?:(?:no\s+)?pix|(?:a|à)\s+vista)\b/i);
+      const cashPriceMatch = cashPriceAfterOr || cashPriceWithCashCue;
 
       return {
-        cashPrice: priceMatches[0] ? normalizeCurrencyText(priceMatches[0][0]) : "",
+        cashPrice: cashPriceMatch
+          ? normalizeCurrencyAmount(cashPriceMatch[1])
+          : (priceMatches[0] ? normalizeCurrencyText(priceMatches[0][0]) : ""),
         installmentCount: installmentMatch ? `${Number(installmentMatch[1])}x` : "",
         installmentValue: installmentMatch ? normalizeCurrencyAmount(installmentMatch[2]) : "",
         discount: normalizeDiscountText(clean)
@@ -1209,6 +1460,7 @@
         ? "Valor à vista / valor novo"
         : "Valor à vista";
       const dynamicColumns = [
+        { key: "url", label: "URL", field: "url" },
         { key: "oldPrice", label: "Valor antigo", field: "oldPrice" },
         { key: "cashPrice", label: priceLabel, field: "cashPrice", fallbackField: "price" },
         { key: "installmentCount", label: "Número de parcelas", field: "installmentCount" },
@@ -1223,6 +1475,10 @@
     }
 
     function shouldShowColumn(column) {
+      if (column.key === "url") {
+        return state.products.length > 0;
+      }
+
       if (column.key === "image") {
         return state.products.some((product) => product.url || product.imageUrl || product.imageError);
       }
@@ -1304,7 +1560,16 @@
         return;
       }
 
-      state.products[index][field] = input.value;
+      const product = state.products[index];
+      const previousValue = product[field];
+      product[field] = input.value;
+      if (field === "url" && input.value !== previousValue) {
+        // Do not apply an image resolved from the previous URL. The normal
+        // apply fallback will resolve the currently edited product URL.
+        product.imageUrl = "";
+        product.imageStatus = "pending";
+        product.imageError = "";
+      }
       updateButtons();
     }
 
@@ -1434,8 +1699,8 @@
 
     function updateButtons() {
       const hasProducts = state.products.length > 0;
-      const hasSlices = state.slices.length > 0;
-      const hasSelectedSlices = state.slices.some((item) => item.selected);
+      const hasSlices = state.emails.some((email) => email.items.length > 0);
+      const hasSelectedSlices = selectedSliceItems().length > 0;
       const busy = state.resolving || state.applying || state.detectingSlices || state.exportingSlices;
       el.analyze.disabled = busy;
       el.editBriefing.disabled = busy;
@@ -1444,6 +1709,10 @@
       el.selectAllSlices.disabled = !hasSlices || busy;
       el.clearSlices.disabled = !hasSlices || busy;
       el.exportSlices.disabled = !hasSelectedSlices || busy;
+      el.productImageHint.hidden = state.skuStep !== "review" && state.skuStep !== "done";
+      el.productImageHint.textContent = hasProducts
+        ? "A primeira imagem de cada produto é buscada automaticamente a partir do link informado no briefing."
+        : "Nenhum link de produto detectado no briefing.";
     }
 
     function setStatus(message) {
