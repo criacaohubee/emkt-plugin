@@ -70,7 +70,7 @@ figma.ui.onmessage = async (message) => {
     }
 
     if (message.type === "export-slices") {
-      const result = await exportAfeetSlices(message.items || [], message.scale || 2);
+      const result = await exportAfeetSlices(message.items || [], message.scale || 1);
       figma.ui.postMessage({ type: "slice-export-complete", result });
       const failureText = result.failures && result.failures.length ? ` ${result.failures.length} falha(s).` : "";
       figma.notify(`Exportacao AFEET concluida: ${result.files.length} arquivo(s).${failureText}`);
@@ -227,11 +227,23 @@ function detectAfeetSlicesForRoot(root) {
       addDetectedSlice(items, seenNodeIds, skuNode, skuNode.name, "node");
     }
 
+    const espacadorNodes = findEspacadorSliceNodes(corpo);
+    for (const espacadorNode of espacadorNodes) {
+      addDetectedSlice(items, seenNodeIds, espacadorNode, espacadorNode.name, "node");
+    }
+
   }
 
   const imgNodes = findImgSliceNodes(root);
   for (const imgNode of imgNodes) {
     addDetectedSlice(items, seenNodeIds, imgNode, imgNode.name, "node");
+  }
+
+  // SEPARADOR is an export-only component. Export the component node itself so
+  // its line, effects, and any internal layers stay exactly as designed.
+  const separadorNodes = findSeparadorSliceNodes(root);
+  for (const separadorNode of separadorNodes) {
+    addDetectedSlice(items, seenNodeIds, separadorNode, separadorNode.name, "node");
   }
 
   const imgSliceNames = items
@@ -386,6 +398,36 @@ function findImgSliceNodes(root) {
   return unique;
 }
 
+function findSeparadorSliceNodes(root) {
+  const nodes = [];
+
+  if (isSeparadorSliceNode(root) && isExportableNode(root)) {
+    nodes.push(root);
+  }
+
+  if (typeof root.findAll === "function") {
+    appendItems(nodes, root.findAll((node) => isExportableNode(node) && isSeparadorSliceNode(node)));
+  }
+
+  const unique = uniqueNodes(nodes);
+  unique.sort(compareTopLeft);
+  return unique;
+}
+
+function findEspacadorSliceNodes(corpo) {
+  if (!corpo || typeof corpo.findAll !== "function") {
+    return [];
+  }
+
+  const nodes = corpo.findAll((node) => {
+    return isExportableNode(node) && isEspacadorSliceNode(node);
+  });
+
+  const unique = uniqueNodes(nodes);
+  unique.sort(compareTopLeft);
+  return unique;
+}
+
 function compareImgSliceNodes(a, b) {
   const aNumber = imgSliceNumber(a.name);
   const bNumber = imgSliceNumber(b.name);
@@ -418,6 +460,22 @@ function isImgSliceNode(node) {
 
 function isImgSliceName(name) {
   return /^IMG(?:\s+\d+)?$/.test(normalizeLayerName(name));
+}
+
+function isSeparadorSliceNode(node) {
+  return Boolean(
+    node &&
+    normalizeLayerName(node.name) === "SEPARADOR" &&
+    !isInsideSkuNode(node)
+  );
+}
+
+function isEspacadorSliceNode(node) {
+  return Boolean(
+    node &&
+    normalizeLayerName(node.name) === "ESPACADOR" &&
+    !isInsideSkuNode(node)
+  );
 }
 
 function isInsideSkuNode(node) {
