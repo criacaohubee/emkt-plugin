@@ -141,7 +141,7 @@ function detectSelectedSkuModels() {
 
   const warnings = items
     .filter((item) => item.model === "unknown")
-    .map((item) => `Modelo do SKU nao identificado em "${item.name}". Use [DE_POR_PARCELADO], [DE_POR], [PARCELADO] ou [A_VISTA].`);
+    .map((item) => `Modelo do SKU nao identificado em "${item.name}". Use [DE_POR_PARCELADO], [DE_POR], [PARCELADO], [PARCELADO MENOR], [CONFIRA AS FORMAS] ou [A_VISTA].`);
 
   if (items.length === 0) {
     warnings.push("Nenhuma camada SKU encontrada na selecao atual.");
@@ -227,11 +227,6 @@ function detectAfeetSlicesForRoot(root) {
       addDetectedSlice(items, seenNodeIds, skuNode, skuNode.name, "node");
     }
 
-    const espacadorNodes = findEspacadorSliceNodes(corpo);
-    for (const espacadorNode of espacadorNodes) {
-      addDetectedSlice(items, seenNodeIds, espacadorNode, espacadorNode.name, "node");
-    }
-
   }
 
   const imgNodes = findImgSliceNodes(root);
@@ -244,6 +239,14 @@ function detectAfeetSlicesForRoot(root) {
   const separadorNodes = findSeparadorSliceNodes(root);
   for (const separadorNode of separadorNodes) {
     addDetectedSlice(items, seenNodeIds, separadorNode, separadorNode.name, "node");
+  }
+
+  // ESPAÇADOR may be placed directly in the e-mail, within CORPO, or inside
+  // VITRINE. Search the complete e-mail root so every valid placement is
+  // exported once; the seen-node registry avoids duplicates.
+  const espacadorNodes = findEspacadorSliceNodes(root);
+  for (const espacadorNode of espacadorNodes) {
+    addDetectedSlice(items, seenNodeIds, espacadorNode, espacadorNode.name, "node");
   }
 
   const imgSliceNames = items
@@ -414,14 +417,16 @@ function findSeparadorSliceNodes(root) {
   return unique;
 }
 
-function findEspacadorSliceNodes(corpo) {
-  if (!corpo || typeof corpo.findAll !== "function") {
-    return [];
+function findEspacadorSliceNodes(root) {
+  const nodes = [];
+
+  if (isEspacadorSliceNode(root) && isExportableNode(root)) {
+    nodes.push(root);
   }
 
-  const nodes = corpo.findAll((node) => {
-    return isExportableNode(node) && isEspacadorSliceNode(node);
-  });
+  if (root && typeof root.findAll === "function") {
+    appendItems(nodes, root.findAll((node) => isExportableNode(node) && isEspacadorSliceNode(node)));
+  }
 
   const unique = uniqueNodes(nodes);
   unique.sort(compareTopLeft);
@@ -1432,10 +1437,12 @@ async function setProductTextFields(skuNode, product, settings, itemResult) {
     await setDePorTextFields(skuNode, product, itemResult);
   } else if (skuModel === "parcelado") {
     await setParceladoTextFields(skuNode, product, itemResult);
+  } else if (skuModel === "confira_as_formas") {
+    await setConfiraAsFormasTextFields(skuNode, product, itemResult);
   } else if (skuModel === "a_vista") {
     await setAVistaTextFields(skuNode, product, itemResult);
   } else {
-    addItemWarning(itemResult, `Modelo do SKU nao identificado em "${skuNode.name}". Use [DE_POR_PARCELADO], [DE_POR], [PARCELADO] ou [A_VISTA] no nome do frame/grupo.`);
+    addItemWarning(itemResult, `Modelo do SKU nao identificado em "${skuNode.name}". Use [DE_POR_PARCELADO], [DE_POR], [PARCELADO], [PARCELADO MENOR], [CONFIRA AS FORMAS] ou [A_VISTA] no nome do frame/grupo.`);
     itemResult.fields.cashPrice = await setNamedText(skuNode, FIELD_ALIASES.cashPrice, product.cashPrice || product.price || "");
   }
 
@@ -1456,8 +1463,14 @@ function detectSkuModel(nodeName) {
   if (name.indexOf("[DE_POR]") >= 0) {
     return "de_por";
   }
+  if (name.indexOf("[PARCELADO MENOR]") >= 0) {
+    return "parcelado";
+  }
   if (name.indexOf("[PARCELADO]") >= 0) {
     return "parcelado";
+  }
+  if (name.indexOf("[CONFIRA AS FORMAS]") >= 0) {
+    return "confira_as_formas";
   }
   if (name.indexOf("[A_VISTA]") >= 0) {
     return "a_vista";
@@ -1472,6 +1485,11 @@ async function setParceladoTextFields(skuNode, product, itemResult) {
 
   warnMissingTextField(itemResult, "installmentCount", "NUMERO DE PARCELAS");
   warnMissingTextField(itemResult, "installmentValue", "VALOR PARCELADO");
+  warnMissingTextField(itemResult, "cashPrice", "VALOR A VISTA");
+}
+
+async function setConfiraAsFormasTextFields(skuNode, product, itemResult) {
+  itemResult.fields.cashPrice = await setNamedText(skuNode, FIELD_ALIASES.cashPrice, product.cashPrice || product.price || "");
   warnMissingTextField(itemResult, "cashPrice", "VALOR A VISTA");
 }
 

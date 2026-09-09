@@ -657,7 +657,7 @@
         </div>
         <div class="actions">
           <label class="archive-name-field">Nome do ZIP
-            <input id="archiveName" type="text" value="exportacao-emails" autocomplete="off" spellcheck="false" aria-label="Nome do arquivo ZIP">
+            <input id="archiveName" type="text" value="Fatias" autocomplete="off" spellcheck="false" aria-label="Nome do arquivo ZIP">
           </label>
           <button id="exportSlices" class="primary" disabled>Exportar Selecionadas</button>
         </div>
@@ -1147,14 +1147,7 @@
     }
 
     function setArchiveNameFromEmails() {
-      if (state.emails.length === 1) {
-        el.archiveName.value = archiveFileStem(state.emails[0].rootName);
-        return;
-      }
-
-      if (state.emails.length > 1) {
-        el.archiveName.value = "exportacao-emails";
-      }
+      el.archiveName.value = "Fatias";
     }
 
     function archiveFileStem(value) {
@@ -1164,7 +1157,7 @@
         .replace(/[\\/:*?\"<>|]+/g, "-")
         .replace(/\s+/g, " ")
         .replace(/^\.+|\.+$/g, "");
-      return safeName || "exportacao-emails";
+      return safeName || "Fatias";
     }
 
     function zipPathSegment(value) {
@@ -1184,8 +1177,9 @@
           folderByEmailId[emailKey] = occurrence === 1 ? baseName : `${baseName} (${occurrence})`;
         }
 
+        const emailPath = multipleEmails ? `${folderByEmailId[emailKey]}/${file.name}` : file.name;
         return {
-          name: multipleEmails ? `${folderByEmailId[emailKey]}/${file.name}` : file.name,
+          name: `Fatias/${emailPath}`,
           bytes: toUint8Array(file.bytes)
         };
       });
@@ -1372,7 +1366,10 @@
       // "à vista"; recognize that value before using the legacy fallback.
       const cashPriceAfterOr = clean.match(/ou(?=\s*(?:R\$\s*)*[\d])\s*(?:R\$\s*)*([\d.]+,\d{2})/i);
       const cashPriceWithCashCue = clean.match(/(?:R\$\s*)*([\d.]+,\d{2})\s+(?:(?:no\s+)?pix|(?:a|à)\s+vista)\b/i);
-      const cashPriceMatch = cashPriceAfterOr || cashPriceWithCashCue;
+      // When the briefing explicitly labels a price as Pix/cash, it belongs
+      // in the template's "no pix à vista" field even when another price
+      // appears after "ou" for installments.
+      const cashPriceMatch = cashPriceWithCashCue || cashPriceAfterOr;
 
       return {
         cashPrice: cashPriceMatch
@@ -1638,6 +1635,10 @@
             warnings.push(`SKU [PARCELADO] sem valor principal identificado.`);
           }
 
+          if (sku.model === "confira_as_formas" && !(product.cashPrice || product.price)) {
+            warnings.push(`SKU [CONFIRA AS FORMAS] sem valor principal identificado.`);
+          }
+
           if (sku.model === "a_vista" && !(product.cashPrice || product.price)) {
             warnings.push(`SKU ${productNumber} está como [A_VISTA], mas nenhum valor à vista foi encontrado no briefing.`);
           }
@@ -1686,6 +1687,9 @@
       }
       if (counts.parcelado) {
         parts.push(`${counts.parcelado} PARCELADO`);
+      }
+      if (counts.confira_as_formas) {
+        parts.push(`${counts.confira_as_formas} CONFIRA AS FORMAS`);
       }
       if (counts.a_vista) {
         parts.push(`${counts.a_vista} A_VISTA`);

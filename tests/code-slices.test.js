@@ -31,7 +31,7 @@ function makeNode(id, name, y, children = []) {
 
 function codeApi(selection) {
   const source = fs.readFileSync("code.js", "utf8")
-    + "\n;globalThis.__sliceTest = { detectAfeetSlices, exportCorpoBackgroundSlice };";
+    + "\n;globalThis.__sliceTest = { detectAfeetSlices, exportCorpoBackgroundSlice, detectSkuModel };";
   const figma = {
     currentPage: { selection },
     ui: { onmessage: null, postMessage() {} },
@@ -43,6 +43,17 @@ function codeApi(selection) {
   vm.runInNewContext(source, context);
   return context.__sliceTest;
 }
+
+test("recognizes every SKU model present in the AF guide template", () => {
+  const api = codeApi([]);
+
+  assert.equal(api.detectSkuModel("SKU [DE_POR_PARCELADO] 1"), "de_por_parcelado");
+  assert.equal(api.detectSkuModel("SKU [DE_POR] 1"), "de_por");
+  assert.equal(api.detectSkuModel("SKU [PARCELADO] 1"), "parcelado");
+  assert.equal(api.detectSkuModel("SKU [PARCELADO MENOR] 1"), "parcelado");
+  assert.equal(api.detectSkuModel("SKU [CONFIRA AS FORMAS] 1"), "confira_as_formas");
+  assert.equal(api.detectSkuModel("SKU [A_VISTA] 1"), "a_vista");
+});
 
 test("CORPO slices are included and retain the visual email order across TEXTO and IMG", () => {
   const body = makeNode("corpo", "CORPO", 200, [
@@ -63,6 +74,29 @@ test("CORPO slices are included and retain the visual email order across TEXTO a
   assert.deepEqual(
     JSON.parse(JSON.stringify(result.emails[0].items.map((item) => item.label))),
     ["HEADER", "HERO", "CORPO_BG", "TEXTO", "IMG", "TEXTO 2", "IMG 2"]
+  );
+});
+
+test("ESPAÇADOR is exported from CORPO, VITRINE, or the e-mail root", () => {
+  const vitrine = makeNode("vitrine", "VITRINE", 350, [
+    makeNode("spacer-vitrine", "ESPAÇADOR", 370)
+  ]);
+  const corpo = makeNode("corpo", "CORPO", 200, [
+    makeNode("spacer-corpo", "ESPAÇADOR", 220),
+    vitrine
+  ]);
+  const root = makeNode("email", "EMKT", 0, [
+    corpo,
+    makeNode("spacer-root", "ESPAÇADOR", 600)
+  ]);
+  const api = codeApi([root]);
+
+  const result = api.detectAfeetSlices();
+  const spacers = result.emails[0].items.filter((item) => item.label === "ESPAÇADOR");
+
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(spacers.map((item) => item.nodeId))),
+    ["spacer-corpo", "spacer-vitrine", "spacer-root"]
   );
 });
 

@@ -56,9 +56,9 @@ SKU 3
 SKU 20
 ```
 
-O produto 1 do briefing e aplicado no `SKU 1`, `SKU [DE_POR_PARCELADO] 1`, `SKU [PARCELADO] 1`, `SKU [DE_POR] 1` ou `SKU [A_VISTA] 1`, o produto 2 no SKU numerado como 2 e assim por diante. A ordem visual ainda e usada para desempate, mas o numero no nome da camada tem prioridade.
+O produto 1 do briefing e aplicado no `SKU 1`, `SKU [DE_POR_PARCELADO] 1`, `SKU [DE_POR] 1`, `SKU [PARCELADO] 1`, `SKU [PARCELADO MENOR] 1`, `SKU [CONFIRA AS FORMAS] 1` ou `SKU [A_VISTA] 1`, o produto 2 no SKU numerado como 2 e assim por diante. A ordem visual ainda e usada para desempate, mas o numero no nome da camada tem prioridade.
 
-Quando o nome do SKU contem `[DE_POR_PARCELADO]`, o plugin usa o parser combinado de preco antigo, preco atual, parcelamento e desconto. Quando contem `[DE_POR]`, ele espera uma linha no briefing com `DE: R$ ... POR R$ ...` e preenche preco antigo e preco novo. Quando contem `[PARCELADO]`, o plugin usa o parser de preco parcelado atual. Quando contem `[A_VISTA]`, ele preenche apenas o valor a vista e desconto opcional. A deteccao prioriza `[DE_POR_PARCELADO]` antes de `[DE_POR]` e `[PARCELADO]`. Se o SKU nao tiver nenhuma dessas tags, o plugin aplica os campos seguros e avisa que o modelo nao foi identificado.
+Quando o nome do SKU contem `[DE_POR_PARCELADO]`, o plugin usa o parser combinado de preco antigo, preco atual, parcelamento e desconto. Quando contem `[DE_POR]`, ele espera uma linha no briefing com `DE: R$ ... POR R$ ...` e preenche preco antigo e preco novo. `[PARCELADO]` e `[PARCELADO MENOR]` usam o parser de preco parcelado atual. `[CONFIRA AS FORMAS]` e `[A_VISTA]` preenchem apenas o valor a vista e desconto opcional. A deteccao prioriza `[DE_POR_PARCELADO]` antes de `[DE_POR]` e das variantes parceladas. Se o SKU nao tiver nenhuma dessas tags, o plugin aplica os campos seguros e avisa que o modelo nao foi identificado.
 
 Dentro de cada SKU, ele altera exclusivamente estas camadas por nome normalizado. Acentos e caixa nao importam.
 
