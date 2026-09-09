@@ -6,7 +6,7 @@ const test = require("node:test");
 function uiApi() {
   const html = fs.readFileSync("ui.html", "utf8");
   const source = html.match(/<script[^>]*>([\s\S]*?)<\/script>/i)[1]
-    + "\n;globalThis.__uiTest = { extractUrlFromText, parseBriefing, handleTableInput, setProducts: (products) => { state.products = products; }, getProducts: () => state.products };";
+    + "\n;globalThis.__uiTest = { extractUrlFromText, parseBriefing, handleTableInput, buildZipEntries, archiveFileStem, setProducts: (products) => { state.products = products; }, getProducts: () => state.products };";
   const elements = new Map();
   const element = () => ({
     addEventListener() {},
@@ -91,6 +91,22 @@ test("normal image resolution remains part of the analysis and application paths
   assert.match(code, /if \(!product\.imageUrl && product\.url\)[\s\S]*?await resolveProductImageUrl/);
 });
 
+test("exports all slices below the Fatias root folder", () => {
+  const files = [
+    { emailId: "email-1", emailName: "E-mail A", name: "HEADER.png", bytes: [1] },
+    { emailId: "email-2", emailName: "E-mail B", name: "HERO.png", bytes: [2] }
+  ];
+
+  assert.deepEqual(JSON.parse(JSON.stringify(ui.buildZipEntries(files, true).map((file) => file.name))), [
+    "Fatias/E-mail A/HEADER.png",
+    "Fatias/E-mail B/HERO.png"
+  ]);
+  assert.deepEqual(JSON.parse(JSON.stringify(ui.buildZipEntries([files[0]], false).map((file) => file.name))), [
+    "Fatias/HEADER.png"
+  ]);
+  assert.equal(ui.archiveFileStem(""), "Fatias");
+});
+
 function parseSingleProduct(priceLine) {
   return ui.parseBriefing(`1 - Produto de teste\n${priceLine}\nCTA: COMPRAR`).products[0];
 }
@@ -114,6 +130,14 @@ test("parses Pix installment prices without a discount", () => {
   assert.equal(product.installmentValue, "R$ 129,99");
   assert.equal(product.cashPrice, "R$ 1.234,99");
   assert.equal(product.discount, "");
+});
+
+test("prefers an explicitly labelled Pix price over the price after OU", () => {
+  const product = parseSingleProduct("R$ 332,49 no pix à vista ou R$ 349,99 em até 3x de R$ 116,66 sem juros 5% OFF");
+
+  assert.equal(product.cashPrice, "R$ 332,49");
+  assert.equal(product.installmentCount, "3x");
+  assert.equal(product.installmentValue, "R$ 116,66");
 });
 
 test("parses the Pix price when a briefing omits OU after installments", () => {
