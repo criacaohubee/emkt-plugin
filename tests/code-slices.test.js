@@ -77,6 +77,21 @@ test("CORPO slices are included and retain the visual email order across TEXTO a
   );
 });
 
+test("detects TEXTO layers directly in an email without CORPO in visual order", () => {
+  const root = makeNode("email", "EMKT", 0, [
+    makeNode("header", "HEADER", 0),
+    makeNode("text-1", "TEXTO", 87),
+    makeNode("hero", "HERO", 296),
+    makeNode("image", "IMG", 896),
+    makeNode("text-2", "TEXTO", 1029)
+  ]);
+  const result = codeApi([root]).detectAfeetSlices();
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(result.emails[0].items.map((item) => item.nodeId))),
+    ["header", "text-1", "hero", "image", "text-2"]
+  );
+});
+
 test("ESPAÇADOR is exported from CORPO, VITRINE, or the e-mail root", () => {
   const vitrine = makeNode("vitrine", "VITRINE", 350, [
     makeNode("spacer-vitrine", "ESPAÇADOR", 370)

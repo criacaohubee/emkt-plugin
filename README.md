@@ -38,6 +38,7 @@ Para um e-mail, as fatias ficam diretamente na raiz do ZIP. Para dois ou tres e-
 O `CORPO_BG` e uma fatia virtual criada por clone temporario da camada `CORPO`; o plugin preserva o tamanho final do frame, oculta os filhos diretos (incluindo grupos, instancias, `IMG`, textos, vitrine e SKUs) somente nesse clone e o remove ao final. Assim, a fatia contem somente o fundo visual do `CORPO`, sem alterar o arquivo original.
 
 As fatias recebem numeros pela posicao no layout do e-mail, de cima para baixo (e da esquerda para a direita em caso de empate), e nao pelo tipo de camada. Assim, uma composicao `TEXTO`, `IMG`, `TEXTO`, `IMG` dentro de `CORPO` sai nessa mesma sequencia, sempre com `CORPO_BG` antes do seu conteudo.
+Camadas `TEXTO` e `TEXTO 2` tambem sao detectadas fora de `CORPO`, inclusive diretamente no frame principal do e-mail.
 Frames no corpo do e-mail chamados `IMG`, `IMG 1`, `IMG 2`, `IMG 03` etc. tambem entram como fatias exportaveis inteiras. Eles nao sao tratados como SKU nem passam pelo parser do briefing; o plugin exporta o frame completo para preservar fill, recorte, efeitos, overlays e filhos.
 
 ## Padrao esperado das camadas Afeef/Authentic Feet

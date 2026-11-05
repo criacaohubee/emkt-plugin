@@ -217,16 +217,17 @@ function detectAfeetSlicesForRoot(root) {
       order: -1
     });
 
-    const textNodes = findTextoNodes(corpo);
-    for (const textNode of textNodes) {
-      addDetectedSlice(items, seenNodeIds, textNode, textNode.name, "node");
-    }
-
     const skuNodes = findExportSkuNodes(corpo);
     for (const skuNode of skuNodes) {
       addDetectedSlice(items, seenNodeIds, skuNode, skuNode.name, "node");
     }
 
+  }
+
+  // Text slices may be inside CORPO or directly in the email frame.
+  const textNodes = findTextoNodes(root);
+  for (const textNode of textNodes) {
+    addDetectedSlice(items, seenNodeIds, textNode, textNode.name, "node");
   }
 
   const imgNodes = findImgSliceNodes(root);
@@ -334,12 +335,12 @@ function findFirstExportNodeByName(root, names) {
   return matches[0] || null;
 }
 
-function findTextoNodes(corpo) {
-  if (!corpo || typeof corpo.findAll !== "function") {
+function findTextoNodes(root) {
+  if (!root || typeof root.findAll !== "function") {
     return [];
   }
 
-  const nodes = corpo.findAll((node) => {
+  const nodes = root.findAll((node) => {
     const name = normalizeLayerName(node.name);
     return isExportableNode(node) && /^TEXTO(?:\s+\d+)?$/.test(name);
   });
